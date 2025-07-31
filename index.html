@@ -28,7 +28,7 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
-            box-sizing: border-box; /* Ensure padding doesn't push width over */
+            box-sizing: border-box;
         }
 
         h1 {
@@ -176,7 +176,7 @@
             margin-top: 15px;
             font-size: 1.1em;
             color: #e0f2f1;
-            word-wrap: break-word; /* To prevent long URLs from breaking layout */
+            word-wrap: break-word;
         }
 
         #game-link-display a {
@@ -268,7 +268,7 @@
             </div>
 
             <div id="players-container">
-                </div>
+            </div>
 
             <div class="actions">
                 <button id="draw-card-btn">Draw Card</button>
@@ -280,9 +280,16 @@
     </div>
 
     <script type="module">
+        const BLANK_CARD_IMG = 'blank_card.png';
+        const CARD_BACK_IMG = 'card_back.png';
+        const CARD_IMAGES_BASE_URL = 'https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/';
+        const MAX_PLAYERS_IN_GAME = 4;
+        const LOCAL_CLIENT_ID_KEY = 'garbageCardGameClientId';
+        const NICKNAME_STORAGE_KEY = 'playerNickname';
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-        import { getDatabase, ref, set, onValue, push, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getDatabase, ref, set, onValue, push, remove, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDQRcHzt0LT9d0xozMFdRdQo-53p11JeYQ",
@@ -297,11 +304,6 @@
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
         const db = getDatabase(app);
-
-        const BLANK_CARD_IMG = 'blank_card.png';
-        const CARD_BACK_IMG = 'card_back.png';
-        const CARD_IMAGES_BASE_URL = 'https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/';
-        const MAX_PLAYERS_IN_GAME = 4;
 
         const gameIdDisplay = document.getElementById('game-id-display');
         const currentPlayerDisplay = document.getElementById('current-player-display');
@@ -334,15 +336,24 @@
             currentPlayerId: null,
             localPlayerId: null,
             localPlayerNickname: 'Guest',
+            localClientId: getOrCreateClientId(),
             deckSize: 0,
             discardTopCard: null,
-            status: 'lobby' /* 'lobby', 'playing', 'full' */
+            status: 'lobby'
         };
 
         let currentDrawnCard = null;
-        let unsubscribeFromGame = null; /* To store the Firebase onValue listener function */
+        let unsubscribeFromGame = null;
 
-        /* --- UI Visibility Management --- */
+        function getOrCreateClientId() {
+            let clientId = localStorage.getItem(LOCAL_CLIENT_ID_KEY);
+            if (!clientId) {
+                clientId = 'client_' + Math.random().toString(36).substring(2, 12);
+                localStorage.setItem(LOCAL_CLIENT_ID_KEY, clientId);
+            }
+            return clientId;
+        }
+
         function showSection(sectionElement) {
             lobbySection.classList.add('hidden');
             gameFullSection.classList.add('hidden');
@@ -350,9 +361,8 @@
             sectionElement.classList.remove('hidden');
         }
 
-        /* --- Nickname Management --- */
         function loadNickname() {
-            const savedNickname = localStorage.getItem('playerNickname');
+            const savedNickname = localStorage.getItem(NICKNAME_STORAGE_KEY);
             if (savedNickname) {
                 gameState.localPlayerNickname = savedNickname;
                 nicknameInput.value = savedNickname;
@@ -363,146 +373,228 @@
         function saveNickname() {
             const newNickname = nicknameInput.value.trim();
             if (newNickname) {
-                localStorage.setItem('playerNickname', newNickname);
+                localStorage.setItem(NICKNAME_STORAGE_KEY, newNickname);
                 gameState.localPlayerNickname = newNickname;
                 currentNicknameDisplay.textContent = `Current: ${newNickname}`;
                 lobbyStatusMessage.textContent = 'Nickname saved!';
             } else {
                 lobbyStatusMessage.textContent = 'Nickname cannot be empty.';
+                nicknameInput.value = gameState.localPlayerNickname;
             }
         }
 
-        /* --- Game State Management Functions --- */
-
         async function createGame() {
-            lobbyStatusMessage.textContent = '';
+            lobbyStatusMessage.textContent = 'Creating game...';
+            gameLinkDisplay.classList.add('hidden');
+
             const gameId = 'GAME' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            const newPlayerId = gameState.localClientId;
+
+            const initialPlayerLayout = {};
+            for (let i = 1; i <= 10; i++) {
+                initialPlayerLayout[i] = { card: null, faceUp: false };
+            }
+
             const initialGameData = {
-                players: {},
+                players: {
+                    [newPlayerId]: {
+                        name: gameState.localPlayerNickname,
+                        clientId: gameState.localClientId,
+                        connected: true,
+                        layout: initialPlayerLayout
+                    }
+                },
                 status: 'waiting',
-                currentPlayerId: null,
+                currentPlayerId: newPlayerId,
                 deckSize: 0,
                 discardTopCard: null
             };
 
-            await set(ref(db, 'games/' + gameId), initialGameData);
-            console.log(`Game created with ID: ${gameId}`);
-            joinGame(gameId);
-            gameLinkDisplay.innerHTML = `Share this link: <a href="${window.location.origin}/#${gameId}">${window.location.origin}/#${gameId}</a>`;
-            gameLinkDisplay.classList.remove('hidden');
+            try {
+                await set(ref(db, 'games/' + gameId), initialGameData);
+                console.log(`Game created with ID: ${gameId}`);
+                gameState.gameId = gameId;
+                gameState.localPlayerId = newPlayerId;
+                window.location.hash = gameId;
+                startListeningToGame(gameId);
+                gameLinkDisplay.innerHTML = `Share this link: <a href="${window.location.origin}/#${gameId}" target="_blank">${window.location.origin}/#${gameId}</a>`;
+                gameLinkDisplay.classList.remove('hidden');
+                lobbyStatusMessage.textContent = 'Game created! Waiting for players.';
+                showSection(gamePlaySection);
+            } catch (error) {
+                console.error("Error creating game:", error);
+                lobbyStatusMessage.textContent = 'Failed to create game. Please try again.';
+            }
+        }
+
+        async function previewGame(gameIdToPreview) {
+            lobbyStatusMessage.textContent = 'Loading game info...';
+            joinGameBtn.disabled = true;
+
+            try {
+                const snapshot = await get(ref(db, 'games/' + gameIdToPreview));
+                const gameData = snapshot.val();
+
+                if (gameData) {
+                    const players = gameData.players || {};
+                    const playerCount = Object.keys(players).length;
+                    const currentStatus = gameData.status || 'waiting';
+
+                    lobbyStatusMessage.innerHTML = `Game ID: <strong>${gameIdToPreview}</strong><br>Players: ${playerCount}/${MAX_PLAYERS_IN_GAME}<br>Status: ${currentStatus}`;
+                    joinGameIdInput.value = gameIdToPreview;
+
+                    const isLocalPlayerInGame = Object.values(players).some(p => p.clientId === gameState.localClientId);
+
+                    if (isLocalPlayerInGame) {
+                        joinGameBtn.disabled = true;
+                        joinGameBtn.textContent = "Already In Game";
+                        lobbyStatusMessage.textContent += '<br>You are already in this game!';
+                        // If already in game, auto-transition to game play
+                        gameState.gameId = gameIdToPreview;
+                        gameState.localPlayerId = Object.keys(players).find(key => players[key].clientId === gameState.localClientId);
+                        startListeningToGame(gameIdToPreview);
+                        showSection(gamePlaySection);
+                    } else if (playerCount < MAX_PLAYERS_IN_GAME) {
+                        joinGameBtn.disabled = false;
+                        joinGameBtn.textContent = "Join Game";
+                    } else {
+                        joinGameBtn.disabled = true;
+                        joinGameBtn.textContent = "Game Full";
+                        lobbyStatusMessage.textContent += '<br><span style="color:red;">Game is full!</span>';
+                    }
+                } else {
+                    lobbyStatusMessage.textContent = 'Game not found.';
+                    joinGameIdInput.value = '';
+                }
+            } catch (error) {
+                console.error("Error previewing game:", error);
+                lobbyStatusMessage.textContent = 'Error loading game info. Please check ID.';
+            }
         }
 
         async function joinGame(gameIdToJoin) {
-            lobbyStatusMessage.textContent = 'Joining game...';
+            if (!gameState.localPlayerNickname || gameState.localPlayerNickname === 'Guest') {
+                lobbyStatusMessage.textContent = 'Please set your nickname before joining a game.';
+                return;
+            }
+            lobbyStatusMessage.textContent = 'Attempting to join game...';
             gameLinkDisplay.classList.add('hidden');
+            joinGameBtn.disabled = true;
 
             const gameRef = ref(db, 'games/' + gameIdToJoin);
+            const newPlayerId = gameState.localClientId;
 
-            /* Use transaction to safely add player */
             const result = await runTransaction(gameRef, (currentData) => {
                 if (currentData) {
                     const players = currentData.players || {};
-                    const playerCount = Object.keys(players).length;
+                    let playerCount = Object.keys(players).length;
+
+                    let playerAlreadyInGame = false;
+                    for(const pId in players) {
+                        if (players[pId].clientId === gameState.localClientId) {
+                            playerAlreadyInGame = true;
+                            break;
+                        }
+                    }
+
+                    if (playerAlreadyInGame) {
+                        return currentData;
+                    }
 
                     if (playerCount >= MAX_PLAYERS_IN_GAME) {
                         currentData.status = 'full';
-                        return currentData; /* Abort transaction and signal game is full */
+                        return currentData;
                     }
 
-                    /* Generate a unique player ID for this session */
-                    const newPlayerId = push(ref(db, `games/${gameIdToJoin}/players`)).key;
+                    const initialPlayerLayout = {};
+                    for (let i = 1; i <= 10; i++) {
+                        initialPlayerLayout[i] = { card: null, faceUp: false };
+                    }
+
                     players[newPlayerId] = {
                         name: gameState.localPlayerNickname,
+                        clientId: gameState.localClientId,
                         connected: true,
-                        layout: {
-                            '1': { card: null, faceUp: false },
-                            '2': { card: null, faceUp: false },
-                            '3': { card: null, faceUp: false },
-                            '4': { card: null, faceUp: false },
-                            '5': { card: null, faceUp: false },
-                            '6': { card: null, faceUp: false },
-                            '7': { card: null, faceUp: false },
-                            '8': { card: null, faceUp: false },
-                            '9': { card: null, faceUp: false },
-                            '10': { card: null, faceUp: false }
-                        }
+                        layout: initialPlayerLayout
                     };
                     currentData.players = players;
-                    currentData.status = playerCount + 1 === MAX_PLAYERS_IN_GAME ? 'playing' : 'waiting'; /* Start game if full */
+                    playerCount++;
 
-                    /* If this is the first player, set them as current player */
                     if (!currentData.currentPlayerId) {
-                         currentData.currentPlayerId = newPlayerId;
+                        currentData.currentPlayerId = newPlayerId;
+                    }
+
+                    if (playerCount === MAX_PLAYERS_IN_GAME) {
+                        currentData.status = 'playing';
+                        currentData.deckSize = 52 - (MAX_PLAYERS_IN_GAME * 10);
+                        currentData.discardTopCard = { rank: 8, suit: 'clubs' };
+                    } else {
+                        currentData.status = 'waiting';
                     }
                     return currentData;
                 }
-                return null; /* Game doesn't exist */
+                return null;
             });
 
             if (result.committed) {
                 const gameData = result.snapshot.val();
-                if (gameData && gameData.status === 'full' && Object.keys(gameData.players).length >= MAX_PLAYERS_IN_GAME) {
-                    showSection(gameFullSection);
-                    lobbyStatusMessage.textContent = '';
-                } else if (gameData) {
-                    gameState.gameId = gameIdToJoin;
-                    /* Find our new player ID, which was generated inside the transaction */
-                    /* We need to find the ID that matches our nickname or generate a new one */
-                    /* For simplicity, we'll assign a fixed player ID for now and assume it's unique enough */
-                    /* In a real app, you'd use Firebase Auth UID or manage session IDs carefully */
-                    let foundPlayerId = null;
-                    for (const pId in gameData.players) {
-                        if (gameData.players[pId].name === gameState.localPlayerNickname && gameData.players[pId].connected === true) {
-                            foundPlayerId = pId;
-                            break;
-                        }
-                    }
-                    if (!foundPlayerId) {
-                        /* Fallback if transaction didn't give us the ID directly, or player was already there */
-                        /* This is a simplification; ideally, the transaction would return the ID */
-                        foundPlayerId = Object.keys(gameData.players).find(id => gameData.players[id].name === gameState.localPlayerNickname) || `player_${Date.now()}`;
-                        console.warn("Could not retrieve specific newPlayerId from transaction, using fallback or existing.");
-                    }
-                    gameState.localPlayerId = foundPlayerId;
-                    console.log(`Joined game ${gameState.gameId} as Player ID: ${gameState.localPlayerId}`);
+                if (gameData) {
+                    const players = gameData.players || {};
+                    const playerInGame = Object.values(players).find(p => p.clientId === gameState.localClientId);
 
-                    window.location.hash = gameState.gameId; /* Update URL to reflect joined game */
-                    lobbyStatusMessage.textContent = `Joined game: ${gameState.gameId}`;
-                    startListeningToGame(gameIdToJoin);
-                    showSection(gamePlaySection);
+                    if (playerInGame) {
+                        gameState.gameId = gameIdToJoin;
+                        gameState.localPlayerId = Object.keys(players).find(key => players[key].clientId === gameState.localClientId);
+                        window.location.hash = gameState.gameId;
+                        startListeningToGame(gameIdToJoin);
+                        lobbyStatusMessage.textContent = `Joined game: ${gameState.gameId}`;
+                        showSection(gamePlaySection);
+                    } else if (gameData.status === 'full') {
+                        showSection(gameFullSection);
+                        lobbyStatusMessage.textContent = 'Game is full!';
+                        joinGameBtn.disabled = false; // Re-enable for potential new join attempts
+                    } else {
+                        lobbyStatusMessage.textContent = 'Could not join game. Player already present or uncommitted transaction.';
+                        showSection(lobbySection);
+                        joinGameBtn.disabled = false;
+                    }
                 } else {
                     lobbyStatusMessage.textContent = 'Game not found or invalid ID.';
                     showSection(lobbySection);
+                    joinGameBtn.disabled = false;
                 }
             } else {
+                console.error("Transaction failed or aborted.");
                 if (result.snapshot.val() && result.snapshot.val().status === 'full') {
                     showSection(gameFullSection);
-                    lobbyStatusMessage.textContent = '';
+                    lobbyStatusMessage.textContent = 'Game is full!';
                 } else {
-                    lobbyStatusMessage.textContent = 'Failed to join game. Please try again.';
+                    lobbyStatusMessage.textContent = 'Failed to join game due to a conflict. Please try again.';
                     showSection(lobbySection);
+                    joinGameBtn.disabled = false;
                 }
             }
         }
 
-        function leaveGame() {
+        async function leaveGame() {
             if (gameState.gameId && gameState.localPlayerId) {
                 const playerRef = ref(db, `games/${gameState.gameId}/players/${gameState.localPlayerId}`);
-                remove(playerRef)
+                await remove(playerRef)
                     .then(() => {
                         console.log("Left game successfully.");
                         if (unsubscribeFromGame) {
-                            unsubscribeFromGame(); /* Detach listener */
+                            unsubscribeFromGame();
+                            unsubscribeFromGame = null;
                         }
                         gameState.gameId = null;
                         gameState.localPlayerId = null;
                         gameState.players = {};
                         gameState.currentPlayerId = null;
-                        window.location.hash = ''; /* Clear game ID from URL */
+                        window.location.hash = '';
                         showSection(lobbySection);
                         lobbyStatusMessage.textContent = 'You have left the game.';
-                        currentDrawnCard = null; /* Clear any held card */
-                        initUI(); /* Re-initialize UI to lobby state */
+                        currentDrawnCard = null;
+                        initUI();
                     })
                     .catch(error => {
                         console.error("Error leaving game:", error);
@@ -513,7 +605,7 @@
 
         function startListeningToGame(gameId) {
             if (unsubscribeFromGame) {
-                unsubscribeFromGame(); /* Detach previous listener if any */
+                unsubscribeFromGame();
             }
             const gameRef = ref(db, 'games/' + gameId);
             unsubscribeFromGame = onValue(gameRef, (snapshot) => {
@@ -525,30 +617,32 @@
                     gameState.discardTopCard = data.discardTopCard || null;
                     gameState.status = data.status || 'waiting';
 
-                    if (gameState.status === 'full' && Object.keys(gameState.players).length >= MAX_PLAYERS_IN_GAME && !gameState.players[gameState.localPlayerId]) {
+                    const playerCount = Object.keys(gameState.players).length;
+                    const isLocalPlayerInGame = Object.values(gameState.players).some(p => p.clientId === gameState.localClientId);
+
+                    if (gameState.status === 'full' && playerCount >= MAX_PLAYERS_IN_GAME && !isLocalPlayerInGame) {
                         showSection(gameFullSection);
-                    } else if (Object.keys(gameState.players).length === 0 && !gameState.localPlayerId) {
-                         /* If game became empty and we're not registered, go to lobby */
-                        showSection(lobbySection);
-                        lobbyStatusMessage.textContent = 'Game disbanded or no players.';
-                        window.location.hash = '';
-                    } else if (gameState.players[gameState.localPlayerId]) {
+                    } else if (!isLocalPlayerInGame && gameState.gameId) {
+                        console.log("Local player not found in game data, returning to lobby.");
+                        leaveGame();
+                    } else if (isLocalPlayerInGame && gameState.gameId) {
+                        gameState.localPlayerId = Object.keys(gameState.players).find(key => gameState.players[key].clientId === gameState.localClientId);
+
                         renderPlayers();
                         updateGameInfo();
                         updateDrawAndDiscardPiles();
                         showSection(gamePlaySection);
                     } else {
-                        /* This means we're trying to join, but not yet registered or removed. Stay in lobby. */
-                        console.log("Not in game yet, staying in lobby or game full check.");
-                        if (!gameState.gameId) { /* If we are somehow in a game-play state but have no gameId (e.g. just left) */
-                             showSection(lobbySection);
-                        }
+                        console.log("Not in game yet, remaining in lobby or processing preview.");
+                        showSection(lobbySection);
+                        previewGame(gameState.gameId);
                     }
 
                 } else {
-                    console.log("Game no longer exists or cleared.");
+                    console.log("Game no longer exists or cleared in Firebase.");
                     if (unsubscribeFromGame) {
                         unsubscribeFromGame();
+                        unsubscribeFromGame = null;
                     }
                     gameState.gameId = null;
                     gameState.localPlayerId = null;
@@ -565,7 +659,22 @@
             });
         }
 
-        /* --- UI Rendering Functions (Same as before, just included for context) --- */
+        function getCardImageUrl(card, faceUp = true) {
+            if (!faceUp || !card) {
+                return CARD_BACK_IMG;
+            }
+            let rankName;
+            switch (card.rank) {
+                case 1: rankName = 'ace'; break;
+                case 11: rankName = 'jack'; break;
+                case 12: rankName = 'queen'; break;
+                case 13: rankName = 'king'; break;
+                default: rankName = card.rank.toString();
+            }
+            const suitName = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
+            const filename = `${rankName}${suitName}.png`;
+            return `${CARD_IMAGES_BASE_URL}${filename}`;
+        }
 
         function renderPlayers() {
             playersContainer.innerHTML = '';
@@ -627,7 +736,7 @@
             const isMyTurn = gameState.localPlayerId === gameState.currentPlayerId;
             drawCardBtn.disabled = !isMyTurn;
             passTurnBtn.disabled = !isMyTurn;
-            leaveGameBtn.disabled = false; /* Always enabled when in game */
+            leaveGameBtn.disabled = false;
         }
 
         function updateDrawAndDiscardPiles() {
@@ -672,28 +781,30 @@
                 const oldCardInSlot = gameState.players[targetPlayerId].layout[targetPosition].card;
                 const wasFaceUp = gameState.players[targetPlayerId].layout[targetPosition].faceUp;
 
+                const newCardForSlot = currentDrawnCard;
                 gameState.players[targetPlayerId].layout[targetPosition] = {
-                    card: currentDrawnCard,
+                    card: newCardForSlot,
                     faceUp: true
                 };
+
+                let nextCardToPlay = null;
 
                 if (oldCardInSlot && wasFaceUp) {
                     console.log("Discarding previously face-up card:", oldCardInSlot);
                     gameState.discardTopCard = oldCardInSlot;
-                    currentDrawnCard = null;
-                    passTurnBtn.disabled = false;
                 } else if (oldCardInSlot && !wasFaceUp) {
-                    currentDrawnCard = oldCardInSlot;
                     console.log("Flipped new card to play:", oldCardInSlot);
-                    passTurnBtn.disabled = true;
-                } else {
-                    currentDrawnCard = null;
-                    passTurnBtn.disabled = false;
+                    nextCardToPlay = oldCardInSlot;
                 }
 
-                /* IMPORTANT: Update Firebase with the new player layout and discard pile */
-                set(ref(db, `games/${gameState.gameId}/players/${gameState.localPlayerId}/layout/${targetPosition}`), gameState.players[targetPlayerId].layout[targetPosition]);
-                set(ref(db, `games/${gameState.gameId}/discardTopCard`), gameState.discardTopCard);
+                currentDrawnCard = nextCardToPlay;
+
+                const updates = {};
+                updates[`games/${gameState.gameId}/players/${gameState.localPlayerId}/layout/${targetPosition}`] = gameState.players[targetPlayerId].layout[targetPosition];
+                if (gameState.discardTopCard) {
+                    updates[`games/${gameState.gameId}/discardTopCard`] = gameState.discardTopCard;
+                }
+                set(ref(db), updates);
 
                 renderPlayers();
                 updateDrawAndDiscardPiles();
@@ -702,7 +813,9 @@
                     console.log("Turn ended (card played or discarded).");
                     drawCardBtn.disabled = false;
                     passTurnBtn.disabled = true;
-                    /* In a real game, you'd trigger backend to advance turn here. */
+                } else {
+                    passTurnBtn.disabled = true;
+                    drawCardBtn.disabled = true;
                 }
 
             } else {
@@ -710,16 +823,15 @@
             }
         }
 
-        /* --- Initialization & Event Listeners --- */
         function initUI() {
             loadNickname();
             const hash = window.location.hash;
             if (hash && hash.startsWith('#')) {
                 const gameIdFromUrl = hash.substring(1);
+                gameState.gameId = gameIdFromUrl;
                 joinGameIdInput.value = gameIdFromUrl;
-                showSection(lobbySection); /* Show lobby first, then attempt to join */
-                lobbyStatusMessage.textContent = `Attempting to join game: ${gameIdFromUrl}`;
-                joinGame(gameIdFromUrl);
+                showSection(lobbySection);
+                previewGame(gameIdFromUrl);
             } else {
                 showSection(lobbySection);
             }
@@ -730,6 +842,8 @@
         joinGameBtn.addEventListener('click', () => joinGame(joinGameIdInput.value.trim()));
         leaveGameBtn.addEventListener('click', leaveGame);
         backToLobbyBtn.addEventListener('click', () => showSection(lobbySection));
+
+        window.addEventListener('hashchange', initUI);
 
         document.addEventListener('DOMContentLoaded', initUI);
     </script>
