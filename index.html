@@ -62,6 +62,40 @@
             position: relative;
             background-color: rgba(0, 0, 0, 0.2);
             overflow: hidden;
+            box-sizing: border-box; /* Ensure padding/border is inside */
+        }
+
+        .card-slot.text-card {
+            border: 2px solid #555;
+            background-color: #333;
+            color: white;
+            font-size: 0.9em;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer; /* Indicate it's interactive */
+        }
+
+        .card-slot.face-down {
+            background-color: #a00; /* Red back for "Garbage" */
+            border-color: #c00;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-slot .card-rank {
+            font-size: 2.2em;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .card-slot .card-suit {
+            font-size: 1.5em;
+            line-height: 1;
+            margin-top: 5px;
         }
 
         .card-slot p {
@@ -71,17 +105,20 @@
             font-size: 0.8em;
         }
 
-        .card-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 6px;
-            transition: transform 0.3s ease-in-out;
+        /* Adjustments for draw/discard pile specific text */
+        .draw-pile.card-slot p, .discard-pile.card-slot p {
+            position: static; /* Remove absolute positioning */
+            margin-top: 5px;
+            font-size: 1em;
+        }
+        .draw-pile.card-slot .card-content, .discard-pile.card-slot .card-content {
+            flex-grow: 1; /* Allow content to take available space */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
-        .card-image.face-down {
-            background-color: #777;
-        }
 
         .player-area {
             background-color: #00796b;
@@ -257,12 +294,18 @@
             </div>
 
             <div class="center-area">
-                <div class="draw-pile card-slot" id="draw-pile">
-                    <img src="blank_card.png" alt="Draw Pile" class="card-image face-down">
+                <div class="draw-pile card-slot text-card" id="draw-pile">
+                    <div class="card-content">
+                        <span class="card-rank"></span>
+                        <span class="card-suit"></span>
+                    </div>
                     <p>Draw Pile</p>
                 </div>
-                <div class="discard-pile card-slot" id="discard-pile">
-                    <img src="blank_card.png" alt="Discard Pile" class="card-image face-down">
+                <div class="discard-pile card-slot text-card" id="discard-pile">
+                    <div class="card-content">
+                        <span class="card-rank"></span>
+                        <span class="card-suit"></span>
+                    </div>
                     <p>Discard Pile</p>
                 </div>
             </div>
@@ -280,9 +323,7 @@
     </div>
 
     <script type="module">
-        const BLANK_CARD_IMG = 'blank_card.png';
-        const CARD_BACK_IMG = 'card_back.png';
-        const CARD_IMAGES_BASE_URL = 'https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/';
+        // Removed BLANK_CARD_IMG, CARD_BACK_IMG, CARD_IMAGES_BASE_URL as we're using text
         const MAX_PLAYERS_IN_GAME = 4;
         const LOCAL_CLIENT_ID_KEY = 'garbageCardGameClientId';
         const NICKNAME_STORAGE_KEY = 'playerNickname';
@@ -449,7 +490,6 @@
                         joinGameBtn.disabled = true;
                         joinGameBtn.textContent = "Already In Game";
                         lobbyStatusMessage.textContent += '<br>You are already in this game!';
-                        // If already in game, auto-transition to game play
                         gameState.gameId = gameIdToPreview;
                         gameState.localPlayerId = Object.keys(players).find(key => players[key].clientId === gameState.localClientId);
                         startListeningToGame(gameIdToPreview);
@@ -526,8 +566,9 @@
 
                     if (playerCount === MAX_PLAYERS_IN_GAME) {
                         currentData.status = 'playing';
-                        currentData.deckSize = 52 - (MAX_PLAYERS_IN_GAME * 10);
-                        currentData.discardTopCard = { rank: 8, suit: 'clubs' };
+                        // Simulate initial deck and discard for testing text cards
+                        currentData.deckSize = 40; // Example size
+                        currentData.discardTopCard = { rank: 8, suit: 'clubs' }; // Example card
                     } else {
                         currentData.status = 'waiting';
                     }
@@ -552,7 +593,7 @@
                     } else if (gameData.status === 'full') {
                         showSection(gameFullSection);
                         lobbyStatusMessage.textContent = 'Game is full!';
-                        joinGameBtn.disabled = false; // Re-enable for potential new join attempts
+                        joinGameBtn.disabled = false;
                     } else {
                         lobbyStatusMessage.textContent = 'Could not join game. Player already present or uncommitted transaction.';
                         showSection(lobbySection);
@@ -659,21 +700,54 @@
             });
         }
 
-        function getCardImageUrl(card, faceUp = true) {
+        // Renamed and updated to render text directly
+        function renderCardContent(cardSlotElement, card, faceUp = true, isPile = false) {
+            cardSlotElement.innerHTML = ''; // Clear existing content
+            cardSlotElement.classList.add('text-card'); // Add general text card styling
+
+            const cardContentDiv = document.createElement('div');
+            cardContentDiv.classList.add('card-content');
+
             if (!faceUp || !card) {
-                return CARD_BACK_IMG;
+                cardContentDiv.innerHTML = '<span class="card-rank">GARBAGE</span>';
+                cardSlotElement.classList.add('face-down'); // Apply face-down style
+            } else {
+                let rankText;
+                switch (card.rank) {
+                    case 1: rankText = 'A'; break;
+                    case 11: rankText = 'J'; break;
+                    case 12: rankText = 'Q'; break;
+                    case 13: rankText = 'K'; break;
+                    default: rankText = card.rank.toString();
+                }
+                const suitSymbol = getSuitSymbol(card.suit);
+                const suitColor = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red' : 'black';
+
+                cardContentDiv.innerHTML = `
+                    <span class="card-rank" style="color:${suitColor};">${rankText}</span>
+                    <span class="card-suit" style="color:${suitColor};">${suitSymbol}</span>
+                `;
+                cardSlotElement.classList.remove('face-down');
             }
-            let rankName;
-            switch (card.rank) {
-                case 1: rankName = 'ace'; break;
-                case 11: rankName = 'jack'; break;
-                case 12: rankName = 'queen'; break;
-                case 13: rankName = 'king'; break;
-                default: rankName = card.rank.toString();
+
+            cardSlotElement.appendChild(cardContentDiv);
+
+            // Add back the pile label if it's a pile
+            if (isPile) {
+                const p = document.createElement('p');
+                p.textContent = cardSlotElement.id === 'draw-pile' ? 'Draw Pile' : 'Discard Pile';
+                cardSlotElement.appendChild(p);
             }
-            const suitName = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
-            const filename = `${rankName}${suitName}.png`;
-            return `${CARD_IMAGES_BASE_URL}${filename}`;
+        }
+
+        function getSuitSymbol(suit) {
+            switch(suit.toLowerCase()) {
+                case 'hearts': return '♥';
+                case 'diamonds': return '♦';
+                case 'clubs': return '♣';
+                case 'spades': return '♠';
+                default: return '';
+            }
         }
 
         function renderPlayers() {
@@ -700,23 +774,17 @@
 
                 for (let i = 1; i <= 10; i++) {
                     const cardSlot = document.createElement('div');
-                    cardSlot.classList.add('card-slot', `card-pos-${i}`);
+                    cardSlot.classList.add('card-slot'); // Removed text-card here, added in renderCardContent
                     cardSlot.dataset.position = i;
                     cardSlot.dataset.playerId = pId;
 
                     const card = player.layout[i];
                     const isFaceUp = card && card.faceUp;
-                    const imageUrl = getCardImageUrl(card ? card.card : null, isFaceUp);
 
-                    const img = document.createElement('img');
-                    img.src = imageUrl;
-                    img.alt = `Card Slot ${i}`;
-                    img.classList.add('card-image');
-                    if (!isFaceUp) {
-                        img.classList.add('face-down');
-                    }
+                    // Pass the card slot element directly to renderCardContent
+                    renderCardContent(cardSlot, card ? card.card : null, isFaceUp);
 
-                    cardSlot.appendChild(img);
+
                     playerLayout.appendChild(cardSlot);
 
                     if (pId === gameState.localPlayerId) {
@@ -740,29 +808,23 @@
         }
 
         function updateDrawAndDiscardPiles() {
-            const drawPileImg = drawPile.querySelector('.card-image');
-            if (gameState.deckSize > 0) {
-                drawPileImg.src = CARD_BACK_IMG;
-                drawPileImg.classList.remove('face-down');
-            } else {
-                drawPileImg.src = BLANK_CARD_IMG;
-                drawPileImg.classList.add('face-down');
-            }
+            // Draw Pile: Always face down if deckSize > 0
+            const drawPileElement = drawPile;
+            const drawPileCard = gameState.deckSize > 0 ? { /* dummy card for visual */ } : null; // Card exists, but it's face down
+            renderCardContent(drawPileElement, drawPileCard, false, true); // Always face down for draw pile
 
-            const discardPileImg = discardPile.querySelector('.card-image');
-            if (gameState.discardTopCard) {
-                discardPileImg.src = getCardImageUrl(gameState.discardTopCard, true);
-                discardPileImg.classList.remove('face-down');
-            } else {
-                discardPileImg.src = BLANK_CARD_IMG;
-                discardPileImg.classList.add('face-down');
-            }
+            // Discard Pile: Face up if a card exists
+            const discardPileElement = discardPile;
+            renderCardContent(discardPileElement, gameState.discardTopCard, true, true);
         }
 
-        function simulateDrawCard(card) {
-            currentDrawnCard = card;
-            console.log("You drew:", card);
+        function simulateDrawCard() {
+            // This will be replaced with actual deck logic later
+            const dummyCard = { rank: Math.floor(Math.random() * 13) + 1, suit: ['hearts', 'diamonds', 'clubs', 'spades'][Math.floor(Math.random() * 4)] };
+            currentDrawnCard = dummyCard;
+            console.log("You drew:", dummyCard);
             passTurnBtn.disabled = false;
+            drawCardBtn.disabled = true; // Disable draw button after drawing
         }
 
         function handleCardSlotClick(event) {
@@ -811,8 +873,10 @@
 
                 if (!currentDrawnCard) {
                     console.log("Turn ended (card played or discarded).");
-                    drawCardBtn.disabled = false;
+                    drawCardBtn.disabled = false; // Re-enable draw for next turn
                     passTurnBtn.disabled = true;
+                    // In a real game, you'd trigger backend to advance turn here.
+                    // For now, it stays on your turn.
                 } else {
                     passTurnBtn.disabled = true;
                     drawCardBtn.disabled = true;
@@ -842,6 +906,8 @@
         joinGameBtn.addEventListener('click', () => joinGame(joinGameIdInput.value.trim()));
         leaveGameBtn.addEventListener('click', leaveGame);
         backToLobbyBtn.addEventListener('click', () => showSection(lobbySection));
+
+        drawCardBtn.addEventListener('click', simulateDrawCard); // Hooked up to simulateDrawCard
 
         window.addEventListener('hashchange', initUI);
 
