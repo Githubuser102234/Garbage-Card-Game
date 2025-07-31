@@ -28,6 +28,7 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            box-sizing: border-box; /* Ensure padding doesn't push width over */
         }
 
         h1 {
@@ -137,6 +138,62 @@
             cursor: not-allowed;
         }
 
+        /* Lobby and controls styling */
+        .lobby-container, .game-full-message, .nickname-section {
+            background-color: #00796b;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .lobby-container input[type="text"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #004d40;
+            margin-right: 10px;
+            width: 200px;
+            font-size: 1em;
+        }
+
+        .lobby-container button {
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .lobby-container button:hover {
+            background-color: #66bb6a;
+        }
+
+        #game-link-display {
+            margin-top: 15px;
+            font-size: 1.1em;
+            color: #e0f2f1;
+            word-wrap: break-word; /* To prevent long URLs from breaking layout */
+        }
+
+        #game-link-display a {
+            color: #ffeb3b;
+            text-decoration: none;
+        }
+
+        #game-link-display a:hover {
+            text-decoration: underline;
+        }
+
+        /* Hide elements based on game state */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive adjustments */
         @media (max-width: 768px) {
             .game-container {
                 padding: 15px;
@@ -148,34 +205,76 @@
                 width: 80px;
                 height: 112px;
             }
+            .center-area {
+                flex-direction: column;
+                gap: 20px;
+                align-items: center;
+            }
+            .lobby-container input[type="text"] {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            .lobby-container button {
+                width: 100%;
+                margin-top: 5px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="game-container">
         <h1>Garbage Card Game</h1>
-        <div id="game-info">
-            <p>Game ID: <span id="game-id-display">N/A</span></p>
-            <p>Current Turn: <span id="current-player-display">Waiting...</span></p>
+
+        <div id="nickname-section" class="nickname-section">
+            <label for="nickname-input">Your Nickname:</label>
+            <input type="text" id="nickname-input" placeholder="Enter your nickname" maxlength="15">
+            <button id="save-nickname-btn">Save Nickname</button>
+            <p id="current-nickname-display">Current: Guest</p>
         </div>
 
-        <div class="center-area">
-            <div class="draw-pile card-slot" id="draw-pile">
-                <img src="blank_card.png" alt="Draw Pile" class="card-image face-down">
-                <p>Draw Pile</p>
+        <div id="lobby-section" class="lobby-container">
+            <h2>Game Lobby</h2>
+            <button id="create-game-btn">Create New Game</button>
+            <p>OR</p>
+            <div>
+                <input type="text" id="join-game-id-input" placeholder="Enter Game ID">
+                <button id="join-game-btn">Join Game</button>
             </div>
-            <div class="discard-pile card-slot" id="discard-pile">
-                <img src="blank_card.png" alt="Discard Pile" class="card-image face-down">
-                <p>Discard Pile</p>
-            </div>
+            <p id="game-link-display" class="hidden"></p>
+            <p id="lobby-status-message" style="color: #ffeb3b; margin-top: 10px;"></p>
         </div>
 
-        <div id="players-container">
+        <div id="game-full-section" class="game-full-message hidden">
+            <h2>Game is Full!</h2>
+            <p>Sorry, this game has reached its maximum number of players (4/4).</p>
+            <button id="back-to-lobby-btn">Back to Lobby</button>
+        </div>
+
+        <div id="game-play-section" class="hidden">
+            <div id="game-info">
+                <p>Game ID: <span id="game-id-display">N/A</span></p>
+                <p>Current Turn: <span id="current-player-display">Waiting...</span></p>
             </div>
 
-        <div class="actions">
-            <button id="draw-card-btn">Draw Card</button>
-            <button id="pass-turn-btn" disabled>Pass Turn</button>
+            <div class="center-area">
+                <div class="draw-pile card-slot" id="draw-pile">
+                    <img src="blank_card.png" alt="Draw Pile" class="card-image face-down">
+                    <p>Draw Pile</p>
+                </div>
+                <div class="discard-pile card-slot" id="discard-pile">
+                    <img src="blank_card.png" alt="Discard Pile" class="card-image face-down">
+                    <p>Discard Pile</p>
+                </div>
+            </div>
+
+            <div id="players-container">
+                </div>
+
+            <div class="actions">
+                <button id="draw-card-btn">Draw Card</button>
+                <button id="pass-turn-btn" disabled>Pass Turn</button>
+                <button id="leave-game-btn" style="background-color: #f44336;">Leave Game</button>
+            </div>
         </div>
 
     </div>
@@ -183,7 +282,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getDatabase, ref, set, onValue, push, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDQRcHzt0LT9d0xozMFdRdQo-53p11JeYQ",
@@ -202,7 +301,7 @@
         const BLANK_CARD_IMG = 'blank_card.png';
         const CARD_BACK_IMG = 'card_back.png';
         const CARD_IMAGES_BASE_URL = 'https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/';
-        const MAX_PLAYERS = 4;
+        const MAX_PLAYERS_IN_GAME = 4;
 
         const gameIdDisplay = document.getElementById('game-id-display');
         const currentPlayerDisplay = document.getElementById('current-player-display');
@@ -211,35 +310,262 @@
         const discardPile = document.getElementById('discard-pile');
         const drawCardBtn = document.getElementById('draw-card-btn');
         const passTurnBtn = document.getElementById('pass-turn-btn');
+        const leaveGameBtn = document.getElementById('leave-game-btn');
+
+        const nicknameInput = document.getElementById('nickname-input');
+        const saveNicknameBtn = document.getElementById('save-nickname-btn');
+        const currentNicknameDisplay = document.getElementById('current-nickname-display');
+
+        const lobbySection = document.getElementById('lobby-section');
+        const createGameBtn = document.getElementById('create-game-btn');
+        const joinGameIdInput = document.getElementById('join-game-id-input');
+        const joinGameBtn = document.getElementById('join-game-btn');
+        const gameLinkDisplay = document.getElementById('game-link-display');
+        const lobbyStatusMessage = document.getElementById('lobby-status-message');
+
+        const gameFullSection = document.getElementById('game-full-section');
+        const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
+
+        const gamePlaySection = document.getElementById('game-play-section');
 
         let gameState = {
             gameId: null,
             players: {},
             currentPlayerId: null,
             localPlayerId: null,
+            localPlayerNickname: 'Guest',
             deckSize: 0,
-            discardTopCard: null
+            discardTopCard: null,
+            status: 'lobby' /* 'lobby', 'playing', 'full' */
         };
 
-        function getCardImageUrl(card, faceUp = true) {
-            if (!faceUp || !card) {
-                return CARD_BACK_IMG;
-            }
+        let currentDrawnCard = null;
+        let unsubscribeFromGame = null; /* To store the Firebase onValue listener function */
 
-            let rankName;
-            switch (card.rank) {
-                case 1: rankName = 'ace'; break;
-                case 11: rankName = 'jack'; break;
-                case 12: rankName = 'queen'; break;
-                case 13: rankName = 'king'; break;
-                default: rankName = card.rank.toString();
-            }
-
-            const suitName = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
-            const filename = `${rankName}${suitName}.png`;
-
-            return `${CARD_IMAGES_BASE_URL}${filename}`;
+        /* --- UI Visibility Management --- */
+        function showSection(sectionElement) {
+            lobbySection.classList.add('hidden');
+            gameFullSection.classList.add('hidden');
+            gamePlaySection.classList.add('hidden');
+            sectionElement.classList.remove('hidden');
         }
+
+        /* --- Nickname Management --- */
+        function loadNickname() {
+            const savedNickname = localStorage.getItem('playerNickname');
+            if (savedNickname) {
+                gameState.localPlayerNickname = savedNickname;
+                nicknameInput.value = savedNickname;
+                currentNicknameDisplay.textContent = `Current: ${savedNickname}`;
+            }
+        }
+
+        function saveNickname() {
+            const newNickname = nicknameInput.value.trim();
+            if (newNickname) {
+                localStorage.setItem('playerNickname', newNickname);
+                gameState.localPlayerNickname = newNickname;
+                currentNicknameDisplay.textContent = `Current: ${newNickname}`;
+                lobbyStatusMessage.textContent = 'Nickname saved!';
+            } else {
+                lobbyStatusMessage.textContent = 'Nickname cannot be empty.';
+            }
+        }
+
+        /* --- Game State Management Functions --- */
+
+        async function createGame() {
+            lobbyStatusMessage.textContent = '';
+            const gameId = 'GAME' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            const initialGameData = {
+                players: {},
+                status: 'waiting',
+                currentPlayerId: null,
+                deckSize: 0,
+                discardTopCard: null
+            };
+
+            await set(ref(db, 'games/' + gameId), initialGameData);
+            console.log(`Game created with ID: ${gameId}`);
+            joinGame(gameId);
+            gameLinkDisplay.innerHTML = `Share this link: <a href="${window.location.origin}/#${gameId}">${window.location.origin}/#${gameId}</a>`;
+            gameLinkDisplay.classList.remove('hidden');
+        }
+
+        async function joinGame(gameIdToJoin) {
+            lobbyStatusMessage.textContent = 'Joining game...';
+            gameLinkDisplay.classList.add('hidden');
+
+            const gameRef = ref(db, 'games/' + gameIdToJoin);
+
+            /* Use transaction to safely add player */
+            const result = await runTransaction(gameRef, (currentData) => {
+                if (currentData) {
+                    const players = currentData.players || {};
+                    const playerCount = Object.keys(players).length;
+
+                    if (playerCount >= MAX_PLAYERS_IN_GAME) {
+                        currentData.status = 'full';
+                        return currentData; /* Abort transaction and signal game is full */
+                    }
+
+                    /* Generate a unique player ID for this session */
+                    const newPlayerId = push(ref(db, `games/${gameIdToJoin}/players`)).key;
+                    players[newPlayerId] = {
+                        name: gameState.localPlayerNickname,
+                        connected: true,
+                        layout: {
+                            '1': { card: null, faceUp: false },
+                            '2': { card: null, faceUp: false },
+                            '3': { card: null, faceUp: false },
+                            '4': { card: null, faceUp: false },
+                            '5': { card: null, faceUp: false },
+                            '6': { card: null, faceUp: false },
+                            '7': { card: null, faceUp: false },
+                            '8': { card: null, faceUp: false },
+                            '9': { card: null, faceUp: false },
+                            '10': { card: null, faceUp: false }
+                        }
+                    };
+                    currentData.players = players;
+                    currentData.status = playerCount + 1 === MAX_PLAYERS_IN_GAME ? 'playing' : 'waiting'; /* Start game if full */
+
+                    /* If this is the first player, set them as current player */
+                    if (!currentData.currentPlayerId) {
+                         currentData.currentPlayerId = newPlayerId;
+                    }
+                    return currentData;
+                }
+                return null; /* Game doesn't exist */
+            });
+
+            if (result.committed) {
+                const gameData = result.snapshot.val();
+                if (gameData && gameData.status === 'full' && Object.keys(gameData.players).length >= MAX_PLAYERS_IN_GAME) {
+                    showSection(gameFullSection);
+                    lobbyStatusMessage.textContent = '';
+                } else if (gameData) {
+                    gameState.gameId = gameIdToJoin;
+                    /* Find our new player ID, which was generated inside the transaction */
+                    /* We need to find the ID that matches our nickname or generate a new one */
+                    /* For simplicity, we'll assign a fixed player ID for now and assume it's unique enough */
+                    /* In a real app, you'd use Firebase Auth UID or manage session IDs carefully */
+                    let foundPlayerId = null;
+                    for (const pId in gameData.players) {
+                        if (gameData.players[pId].name === gameState.localPlayerNickname && gameData.players[pId].connected === true) {
+                            foundPlayerId = pId;
+                            break;
+                        }
+                    }
+                    if (!foundPlayerId) {
+                        /* Fallback if transaction didn't give us the ID directly, or player was already there */
+                        /* This is a simplification; ideally, the transaction would return the ID */
+                        foundPlayerId = Object.keys(gameData.players).find(id => gameData.players[id].name === gameState.localPlayerNickname) || `player_${Date.now()}`;
+                        console.warn("Could not retrieve specific newPlayerId from transaction, using fallback or existing.");
+                    }
+                    gameState.localPlayerId = foundPlayerId;
+                    console.log(`Joined game ${gameState.gameId} as Player ID: ${gameState.localPlayerId}`);
+
+                    window.location.hash = gameState.gameId; /* Update URL to reflect joined game */
+                    lobbyStatusMessage.textContent = `Joined game: ${gameState.gameId}`;
+                    startListeningToGame(gameIdToJoin);
+                    showSection(gamePlaySection);
+                } else {
+                    lobbyStatusMessage.textContent = 'Game not found or invalid ID.';
+                    showSection(lobbySection);
+                }
+            } else {
+                if (result.snapshot.val() && result.snapshot.val().status === 'full') {
+                    showSection(gameFullSection);
+                    lobbyStatusMessage.textContent = '';
+                } else {
+                    lobbyStatusMessage.textContent = 'Failed to join game. Please try again.';
+                    showSection(lobbySection);
+                }
+            }
+        }
+
+        function leaveGame() {
+            if (gameState.gameId && gameState.localPlayerId) {
+                const playerRef = ref(db, `games/${gameState.gameId}/players/${gameState.localPlayerId}`);
+                remove(playerRef)
+                    .then(() => {
+                        console.log("Left game successfully.");
+                        if (unsubscribeFromGame) {
+                            unsubscribeFromGame(); /* Detach listener */
+                        }
+                        gameState.gameId = null;
+                        gameState.localPlayerId = null;
+                        gameState.players = {};
+                        gameState.currentPlayerId = null;
+                        window.location.hash = ''; /* Clear game ID from URL */
+                        showSection(lobbySection);
+                        lobbyStatusMessage.textContent = 'You have left the game.';
+                        currentDrawnCard = null; /* Clear any held card */
+                        initUI(); /* Re-initialize UI to lobby state */
+                    })
+                    .catch(error => {
+                        console.error("Error leaving game:", error);
+                        lobbyStatusMessage.textContent = 'Error leaving game. Try refreshing.';
+                    });
+            }
+        }
+
+        function startListeningToGame(gameId) {
+            if (unsubscribeFromGame) {
+                unsubscribeFromGame(); /* Detach previous listener if any */
+            }
+            const gameRef = ref(db, 'games/' + gameId);
+            unsubscribeFromGame = onValue(gameRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    gameState.players = data.players || {};
+                    gameState.currentPlayerId = data.currentPlayerId;
+                    gameState.deckSize = data.deckSize || 0;
+                    gameState.discardTopCard = data.discardTopCard || null;
+                    gameState.status = data.status || 'waiting';
+
+                    if (gameState.status === 'full' && Object.keys(gameState.players).length >= MAX_PLAYERS_IN_GAME && !gameState.players[gameState.localPlayerId]) {
+                        showSection(gameFullSection);
+                    } else if (Object.keys(gameState.players).length === 0 && !gameState.localPlayerId) {
+                         /* If game became empty and we're not registered, go to lobby */
+                        showSection(lobbySection);
+                        lobbyStatusMessage.textContent = 'Game disbanded or no players.';
+                        window.location.hash = '';
+                    } else if (gameState.players[gameState.localPlayerId]) {
+                        renderPlayers();
+                        updateGameInfo();
+                        updateDrawAndDiscardPiles();
+                        showSection(gamePlaySection);
+                    } else {
+                        /* This means we're trying to join, but not yet registered or removed. Stay in lobby. */
+                        console.log("Not in game yet, staying in lobby or game full check.");
+                        if (!gameState.gameId) { /* If we are somehow in a game-play state but have no gameId (e.g. just left) */
+                             showSection(lobbySection);
+                        }
+                    }
+
+                } else {
+                    console.log("Game no longer exists or cleared.");
+                    if (unsubscribeFromGame) {
+                        unsubscribeFromGame();
+                    }
+                    gameState.gameId = null;
+                    gameState.localPlayerId = null;
+                    gameState.players = {};
+                    gameState.currentPlayerId = null;
+                    window.location.hash = '';
+                    showSection(lobbySection);
+                    lobbyStatusMessage.textContent = 'The game has ended or was deleted.';
+                }
+            }, (error) => {
+                console.error("Firebase read failed:", error);
+                lobbyStatusMessage.textContent = 'Error connecting to game. Please try again.';
+                showSection(lobbySection);
+            });
+        }
+
+        /* --- UI Rendering Functions (Same as before, just included for context) --- */
 
         function renderPlayers() {
             playersContainer.innerHTML = '';
@@ -255,7 +581,7 @@
                 }
                 if (pId === gameState.localPlayerId) {
                     playerArea.classList.add('local-player');
-                    playerArea.innerHTML = `<h2>Your Layout</h2>`;
+                    playerArea.innerHTML = `<h2>Your Layout (${player.name})</h2>`;
                 } else {
                     playerArea.innerHTML = `<h2>${player.name || `Player ${pId.substring(0, 4)}`}</h2>`;
                 }
@@ -301,6 +627,7 @@
             const isMyTurn = gameState.localPlayerId === gameState.currentPlayerId;
             drawCardBtn.disabled = !isMyTurn;
             passTurnBtn.disabled = !isMyTurn;
+            leaveGameBtn.disabled = false; /* Always enabled when in game */
         }
 
         function updateDrawAndDiscardPiles() {
@@ -323,109 +650,10 @@
             }
         }
 
-        drawCardBtn.addEventListener('click', () => {
-            if (gameState.localPlayerId === gameState.currentPlayerId) {
-                console.log("Local player attempting to draw a card...");
-                simulateDrawCard({ rank: 7, suit: 'diamonds' });
-            }
-        });
-
-        passTurnBtn.addEventListener('click', () => {
-            if (gameState.localPlayerId === gameState.currentPlayerId) {
-                console.log("Local player attempting to pass turn...");
-            }
-        });
-
-        let currentDrawnCard = null;
         function simulateDrawCard(card) {
             currentDrawnCard = card;
             console.log("You drew:", card);
             passTurnBtn.disabled = false;
-        }
-
-        function initGame() {
-            const hash = window.location.hash;
-            if (hash && hash.startsWith('#')) {
-                gameState.gameId = hash.substring(1);
-            } else {
-                gameState.gameId = 'DEMO' + Math.random().toString(36).substring(2, 6).toUpperCase();
-                window.location.hash = gameState.gameId;
-            }
-
-            simulateInitialGameState();
-
-            renderPlayers();
-            updateGameInfo();
-            updateDrawAndDiscardPiles();
-
-            /* Example of reading from Firebase (you'll expand this) */
-            const gameRef = ref(db, 'games/' + gameState.gameId);
-            onValue(gameRef, (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    console.log("Firebase data updated:", data);
-                    /* Update gameState with data from Firebase here if needed */
-                } else {
-                    console.log("No data for this game in Firebase.");
-                }
-            });
-            /* Example of writing to Firebase (you'll expand this) */
-            /* set(ref(db, 'test/message'), {text: 'Hello from client!', timestamp: new Date().toISOString()}); */
-        }
-
-        function simulateInitialGameState() {
-            gameState.localPlayerId = 'player1';
-            gameState.currentPlayerId = 'player1';
-
-            gameState.players = {
-                'player1': {
-                    name: 'You',
-                    layout: {
-                        '1': { card: { rank: 1, suit: 'spades' }, faceUp: true },
-                        '2': { card: { rank: 2, suit: 'diamonds' }, faceUp: true },
-                        '3': { card: { rank: 3, suit: 'clubs' }, faceUp: true },
-                        '4': { card: { rank: 4, suit: 'hearts' }, faceUp: true },
-                        '5': { card: { rank: 5, suit: 'spades' }, faceUp: true },
-                        '6': { card: { rank: 6, suit: 'diamonds' }, faceUp: true },
-                        '7': { card: { rank: 7, suit: 'clubs' }, faceUp: true },
-                        '8': { card: { rank: 8, suit: 'hearts' }, faceUp: true },
-                        '9': { card: { rank: 9, suit: 'spades' }, faceUp: true },
-                        '10': { card: { rank: 10, suit: 'clubs' }, faceUp: true }
-                    }
-                },
-                'player2': {
-                    name: 'Opponent 1',
-                    layout: {
-                        '1': { card: { rank: 11, suit: 'hearts' }, faceUp: true },
-                        '2': { card: null, faceUp: false },
-                        '3': { card: null, faceUp: false },
-                        '4': { card: null, faceUp: false },
-                        '5': { card: null, faceUp: false },
-                        '6': { card: null, faceUp: false },
-                        '7': { card: null, faceUp: false },
-                        '8': { card: null, faceUp: false },
-                        '9': { card: null, faceUp: false },
-                        '10': { card: null, faceUp: false }
-                    }
-                },
-                'player3': {
-                    name: 'Opponent 2',
-                    layout: {
-                        '1': { card: { rank: 12, suit: 'diamonds' }, faceUp: true },
-                        '2': { card: null, faceUp: false },
-                        '3': { card: null, faceUp: false },
-                        '4': { card: null, faceUp: false },
-                        '5': { card: null, faceUp: false },
-                        '6': { card: null, faceUp: false },
-                        '7': { card: null, faceUp: false },
-                        '8': { card: null, faceUp: false },
-                        '9': { card: null, faceUp: false },
-                        '10': { card: { rank: 13, suit: 'clubs' }, faceUp: true }
-                    }
-                }
-            };
-            gameState.deckSize = 30;
-            gameState.discardTopCard = { rank: 8, suit: 'clubs' };
         }
 
         function handleCardSlotClick(event) {
@@ -463,6 +691,10 @@
                     passTurnBtn.disabled = false;
                 }
 
+                /* IMPORTANT: Update Firebase with the new player layout and discard pile */
+                set(ref(db, `games/${gameState.gameId}/players/${gameState.localPlayerId}/layout/${targetPosition}`), gameState.players[targetPlayerId].layout[targetPosition]);
+                set(ref(db, `games/${gameState.gameId}/discardTopCard`), gameState.discardTopCard);
+
                 renderPlayers();
                 updateDrawAndDiscardPiles();
 
@@ -470,6 +702,7 @@
                     console.log("Turn ended (card played or discarded).");
                     drawCardBtn.disabled = false;
                     passTurnBtn.disabled = true;
+                    /* In a real game, you'd trigger backend to advance turn here. */
                 }
 
             } else {
@@ -477,7 +710,28 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', initGame);
+        /* --- Initialization & Event Listeners --- */
+        function initUI() {
+            loadNickname();
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#')) {
+                const gameIdFromUrl = hash.substring(1);
+                joinGameIdInput.value = gameIdFromUrl;
+                showSection(lobbySection); /* Show lobby first, then attempt to join */
+                lobbyStatusMessage.textContent = `Attempting to join game: ${gameIdFromUrl}`;
+                joinGame(gameIdFromUrl);
+            } else {
+                showSection(lobbySection);
+            }
+        }
+
+        saveNicknameBtn.addEventListener('click', saveNickname);
+        createGameBtn.addEventListener('click', createGame);
+        joinGameBtn.addEventListener('click', () => joinGame(joinGameIdInput.value.trim()));
+        leaveGameBtn.addEventListener('click', leaveGame);
+        backToLobbyBtn.addEventListener('click', () => showSection(lobbySection));
+
+        document.addEventListener('DOMContentLoaded', initUI);
     </script>
 </body>
 </html>
