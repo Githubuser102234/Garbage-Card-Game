@@ -190,7 +190,7 @@
         // --- Configuration ---
         const BLANK_CARD_IMG = 'blank_card.png'; // Path to your blank card image
         const CARD_BACK_IMG = 'card_back.png'; // Path to your card back image (if different from blank)
-        // Updated base URL for card images. Assumes all actual card images will be at this base.
+        // Updated base URL for card images.
         const CARD_IMAGES_BASE_URL = 'https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/';
         const MAX_PLAYERS = 4; // Max players supported by UI layout
 
@@ -215,7 +215,7 @@
 
         // --- Card Representation Helper ---
         // You will map your backend card objects to this structure
-        // Example: { rank: 1, suit: 'clubs' } for Ace of Clubs, { rank: 10, suit: 'clubs' } for 10 of Clubs, { rank: 13 } for generic King
+        // Example: { rank: 1, suit: 'clubs' } for Ace of Clubs, { rank: 10, suit: 'clubs' } for 10 of Clubs, { rank: 13, suit: 'hearts' } for King of Hearts
         // Ranks: 1 (Ace), 2-10, 11 (Jack), 12 (Queen), 13 (King)
         // Suits: 'clubs', 'diamonds', 'hearts', 'spades' (lowercase)
         function getCardImageUrl(card, faceUp = true) {
@@ -223,30 +223,19 @@
                 return CARD_BACK_IMG; // Or BLANK_CARD_IMG if you use one for both
             }
 
-            let rankString = card.rank.toString();
-            const suitString = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
-
-            // Map numerical ranks to letters/words for image filenames
-            const rankMapping = {
-                '1': 'ace',
-                '11': 'jack',
-                '12': 'queen',
-                '13': 'king'
-            };
-
-            if (rankString in rankMapping) {
-                rankString = rankMapping[rankString];
+            let rankName;
+            switch (card.rank) {
+                case 1: rankName = 'ace'; break;
+                case 11: rankName = 'jack'; break;
+                case 12: rankName = 'queen'; break;
+                case 13: rankName = 'king'; break;
+                default: rankName = card.rank.toString(); // For 2-10
             }
 
-            // Construct the filename, prioritizing suit-specific if suit is provided in card object
-            let filename;
-            if (card.suit) {
-                // Example: "ace_of_spades.png", "10_of_clubs.png", "king_of_hearts.png"
-                filename = `${rankString.toLowerCase()}${suitString}.png`;
-            } else {
-                // Fallback to generic rank if no suit provided in card object (e.g., "5.png", "ace.png")
-                filename = `${rankString.toLowerCase()}.png`;
-            }
+            const suitName = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
+
+            // Construct the filename using the full rank name and suit (e.g., "10_of_clubs.png")
+            const filename = `${rankName}${suitName}.png`;
 
             return `${CARD_IMAGES_BASE_URL}${filename}`;
         }
@@ -348,7 +337,6 @@
                 console.log("Local player attempting to draw a card...");
                 // After successful draw (from Firebase callback), you'd update local gameState
                 // For now, simulate a drawn card for testing UI.
-                // Example: simulateDrawCard({ rank: 10, suit: 'clubs' }); for the specific image you provided
                 simulateDrawCard({ rank: 5, suit: 'hearts' }); // Replace with actual card drawn from backend
                 // This button might be disabled after draw, and then another action (play/discard) is enabled
             }
@@ -395,24 +383,40 @@
             updateGameInfo();
             updateDrawAndDiscardPiles();
 
-            // In a real app:
-            // - You'd initialize Firebase here (replace with your Firebase config)
-            /*
+            // In a real app, you'd integrate Firebase here.
             // Example Firebase initialization:
-            // firebase.initializeApp({ YOUR_FIREBASE_CONFIG });
+            /*
+            // Be sure to include Firebase SDK scripts in your HTML head before this script.
+            // <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+            // <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+            // const firebaseConfig = { ... your config ... };
+            // firebase.initializeApp(firebaseConfig);
             // const db = firebase.firestore();
+
             // db.collection('games').doc(gameState.gameId).onSnapshot(doc => {
             //     if (doc.exists) {
-            //         // Update gameState based on doc.data()
-            //         // Call renderPlayers(), updateGameInfo(), updateDrawAndDiscardPiles()
+            //         const data = doc.data();
+            //         // Update gameState based on Firebase data
+            //         // gameState.players = data.players;
+            //         // gameState.currentPlayerId = data.currentPlayerId;
+            //         // gameState.deckSize = data.deck.length; // Assuming backend sends full deck
+            //         // gameState.discardTopCard = data.discardPile.length > 0 ? data.discardPile[0] : null;
+
+            //         // Then re-render UI
+            //         // renderPlayers();
+            //         // updateGameInfo();
+            //         // updateDrawAndDiscardPiles();
             //     } else {
             //         console.log("No such game!");
+            //         // Handle game not found (e.g., redirect to lobby)
             //     }
             // });
             */
         }
 
         // --- Simulate Initial Game State (for frontend testing without backend) ---
+        // This structure uses numerical ranks (1 for Ace, 11 for Jack, 12 for Queen, 13 for King)
+        // and lowercase suit names.
         function simulateInitialGameState() {
             gameState.localPlayerId = 'player1'; // Assume we are player1 for testing
             gameState.currentPlayerId = 'player1'; // Player1 starts
@@ -421,12 +425,12 @@
                 'player1': {
                     name: 'You',
                     layout: {
-                        '1': { card: null, faceUp: false },
+                        '1': { card: { rank: 1, suit: 'spades' }, faceUp: true }, // Ace of Spades
                         '2': { card: null, faceUp: false },
                         '3': { card: { rank: 3, suit: 'diamonds' }, faceUp: true },
                         '4': { card: null, faceUp: false },
-                        '5': { card: null, faceUp: false },
-                        '6': { card: { rank: 13, suit: 'spades' }, faceUp: true }, // King in slot 6
+                        '5': { card: { rank: 5, suit: 'hearts' }, faceUp: true },
+                        '6': { card: { rank: 13, suit: 'spades' }, faceUp: true }, // King of Spades
                         '7': { card: null, faceUp: false },
                         '8': { card: null, faceUp: false },
                         '9': { card: null, faceUp: false },
