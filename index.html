@@ -214,8 +214,8 @@
         };
 
         // --- Card Representation Helper ---
-        // You will map your backend card objects to this structure
-        // Example: { rank: 1, suit: 'clubs' } for Ace of Clubs, { rank: 10, suit: 'clubs' } for 10 of Clubs, { rank: 13, suit: 'hearts' } for King of Hearts
+        // This function generates the full URL for a card image based on its rank and suit.
+        // Expected card object format: { rank: [1-13], suit: '[clubs/diamonds/hearts/spades]' }
         // Ranks: 1 (Ace), 2-10, 11 (Jack), 12 (Queen), 13 (King)
         // Suits: 'clubs', 'diamonds', 'hearts', 'spades' (lowercase)
         function getCardImageUrl(card, faceUp = true) {
@@ -229,12 +229,14 @@
                 case 11: rankName = 'jack'; break;
                 case 12: rankName = 'queen'; break;
                 case 13: rankName = 'king'; break;
-                default: rankName = card.rank.toString(); // For 2-10
+                default: rankName = card.rank.toString(); // For numerical ranks 2-10
             }
 
+            // Ensure suit is provided and convert to lowercase for filename
             const suitName = card.suit ? `_of_${card.suit.toLowerCase()}` : '';
 
-            // Construct the filename using the full rank name and suit (e.g., "10_of_clubs.png")
+            // Construct the filename following the "[rank]_of_[suit].png" pattern
+            // Example: "10_of_clubs.png", "ace_of_spades.png", "jack_of_diamonds.png"
             const filename = `${rankName}${suitName}.png`;
 
             return `${CARD_IMAGES_BASE_URL}${filename}`;
@@ -337,7 +339,7 @@
                 console.log("Local player attempting to draw a card...");
                 // After successful draw (from Firebase callback), you'd update local gameState
                 // For now, simulate a drawn card for testing UI.
-                simulateDrawCard({ rank: 5, suit: 'hearts' }); // Replace with actual card drawn from backend
+                simulateDrawCard({ rank: 7, suit: 'diamonds' }); // Example: drawing a 7 of Diamonds
                 // This button might be disabled after draw, and then another action (play/discard) is enabled
             }
         });
@@ -425,22 +427,22 @@
                 'player1': {
                     name: 'You',
                     layout: {
-                        '1': { card: { rank: 1, suit: 'spades' }, faceUp: true }, // Ace of Spades
-                        '2': { card: null, faceUp: false },
-                        '3': { card: { rank: 3, suit: 'diamonds' }, faceUp: true },
-                        '4': { card: null, faceUp: false },
-                        '5': { card: { rank: 5, suit: 'hearts' }, faceUp: true },
-                        '6': { card: { rank: 13, suit: 'spades' }, faceUp: true }, // King of Spades
-                        '7': { card: null, faceUp: false },
-                        '8': { card: null, faceUp: false },
-                        '9': { card: null, faceUp: false },
-                        '10': { card: { rank: 10, suit: 'clubs' }, faceUp: true } // 10 of Clubs, now showing!
+                        '1': { card: { rank: 1, suit: 'spades' }, faceUp: true },   // Ace of Spades
+                        '2': { card: { rank: 2, suit: 'diamonds' }, faceUp: true }, // 2 of Diamonds
+                        '3': { card: { rank: 3, suit: 'clubs' }, faceUp: true },    // 3 of Clubs
+                        '4': { card: { rank: 4, suit: 'hearts' }, faceUp: true },   // 4 of Hearts
+                        '5': { card: { rank: 5, suit: 'spades' }, faceUp: true },   // 5 of Spades
+                        '6': { card: { rank: 6, suit: 'diamonds' }, faceUp: true }, // 6 of Diamonds
+                        '7': { card: { rank: 7, suit: 'clubs' }, faceUp: true },    // 7 of Clubs
+                        '8': { card: { rank: 8, suit: 'hearts' }, faceUp: true },   // 8 of Hearts
+                        '9': { card: { rank: 9, suit: 'spades' }, faceUp: true },   // 9 of Spades
+                        '10': { card: { rank: 10, suit: 'clubs' }, faceUp: true }   // 10 of Clubs (from your list)
                     }
                 },
                 'player2': {
                     name: 'Opponent 1',
                     layout: {
-                        '1': { card: null, faceUp: false },
+                        '1': { card: { rank: 11, suit: 'hearts' }, faceUp: true }, // Jack of Hearts
                         '2': { card: null, faceUp: false },
                         '3': { card: null, faceUp: false },
                         '4': { card: null, faceUp: false },
@@ -455,7 +457,7 @@
                 'player3': {
                     name: 'Opponent 2',
                     layout: {
-                        '1': { card: null, faceUp: false },
+                        '1': { card: { rank: 12, suit: 'diamonds' }, faceUp: true }, // Queen of Diamonds
                         '2': { card: null, faceUp: false },
                         '3': { card: null, faceUp: false },
                         '4': { card: null, faceUp: false },
@@ -464,7 +466,7 @@
                         '7': { card: null, faceUp: false },
                         '8': { card: null, faceUp: false },
                         '9': { card: null, faceUp: false },
-                        '10': { card: null, faceUp: false }
+                        '10': { card: { rank: 13, suit: 'clubs' }, faceUp: true }  // King of Clubs
                     }
                 }
             };
