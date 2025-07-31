@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garbage Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better layout management */
+            min-height: 100vh;
+            background-color: #33691e; /* Dark green for card table feel */
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: #004d40; /* Slightly darker green */
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 1200px; /* Adjust as needed */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #a7ffeb;
+            margin-bottom: 20px;
+        }
+
+        #game-info {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .center-area {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 30px;
+        }
+
+        .card-slot {
+            width: 100px; /* Standard card width */
+            height: 140px; /* Standard card height */
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.2);
+            overflow: hidden; /* To contain card image within slot */
+        }
+
+        .card-slot p {
+            position: absolute;
+            bottom: 5px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8em;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures the image covers the slot */
+            border-radius: 6px;
+            transition: transform 0.3s ease-in-out; /* For flip animation */
+        }
+
+        .card-image.face-down {
+            background-color: #777; /* Default back of card color */
+            /* You'd use a specific card back image here if you have one */
+            /* background-image: url('card_back.png');
+            background-size: cover; */
+        }
+
+        .player-area {
+            background-color: #00796b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-area h2 {
+            text-align: center;
+            color: #e0f2f1;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .player-layout {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* Two rows of five cards */
+            gap: 10px;
+            justify-items: center;
+        }
+
+        /* Specific styling for active player (optional) */
+        .player-area.active-player {
+            border: 3px solid #ffeb3b; /* Highlight active player */
+            box-shadow: 0 0 25px rgba(255, 235, 59, 0.7);
+        }
+
+        /* Actions buttons */
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .actions button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        .actions button:hover:not(:disabled) {
+            background-color: #66bb6a;
+            transform: translateY(-2px);
+        }
+
+        .actions button:disabled {
+            background-color: #9e9e9e;
+            cursor: not-allowed;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 15px;
+            }
+            .player-layout {
+                grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); /* More flexible on small screens */
+            }
+            .card-slot {
+                width: 80px;
+                height: 112px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Garbage Card Game</h1>
+        <div id="game-info">
+            <p>Game ID: <span id="game-id-display">N/A</span></p>
+            <p>Current Turn: <span id="current-player-display">Waiting...</span></p>
+        </div>
+
+        <div class="center-area">
+            <div class="draw-pile card-slot" id="draw-pile">
+                <img src="blank_card.png" alt="Draw Pile" class="card-image face-down">
+                <p>Draw Pile</p>
+            </div>
+            <div class="discard-pile card-slot" id="discard-pile">
+                <img src="blank_card.png" alt="Discard Pile" class="card-image face-down">
+                <p>Discard Pile</p>
+            </div>
+        </div>
+
+        <div id="players-container">
+            </div>
+
+        <div class="actions">
+            <button id="draw-card-btn">Draw Card</button>
+            <button id="pass-turn-btn" disabled>Pass Turn</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const BLANK_CARD_IMG = 'blank_card.png'; // Path to your blank card image
+        const CARD_BACK_IMG = 'card_back.png'; // Path to your card back image (if different from blank)
+        const CARD_IMAGES_DIR = 'cards/'; // Directory where your card images (e.g., 'A.png', 'K.png') will be
+        const MAX_PLAYERS = 4; // Max players supported by UI layout
+
+        // --- DOM Elements ---
+        const gameIdDisplay = document.getElementById('game-id-display');
+        const currentPlayerDisplay = document.getElementById('current-player-display');
+        const playersContainer = document.getElementById('players-container');
+        const drawPile = document.getElementById('draw-pile');
+        const discardPile = document.getElementById('discard-pile');
+        const drawCardBtn = document.getElementById('draw-card-btn');
+        const passTurnBtn = document.getElementById('pass-turn-btn');
+
+        // --- Game State (Client-side representation - will be synchronized with Firebase) ---
+        let gameState = {
+            gameId: null,
+            players: {}, // { playerId: { name: '...', layout: { '1': { card: null, faceUp: false }, ... } } }
+            currentPlayerId: null,
+            localPlayerId: null, // This player's ID in the game
+            deckSize: 0, // Just a number for display, actual deck is in backend
+            discardTopCard: null // Card object for the top of the discard pile
+        };
+
+        // --- Card Representation Helper ---
+        // You will map your backend card objects to this structure
+        // Example: { rank: 'A', suit: 'H' } or { rank: 5, suit: 'C' } or { rank: 'K' }
+        // 'A' = Ace (1), 'J' = Jack, 'Q' = Queen, 'K' = King
+        function getCardImageUrl(card, faceUp = true) {
+            if (!faceUp || !card) {
+                return CARD_BACK_IMG; // Or BLANK_CARD_IMG if you use one for both
+            }
+            // Assuming card.rank is '1' (for Ace) through '10', 'J', 'Q', 'K'
+            const rankMapping = {
+                '1': 'A', '11': 'J', '12': 'Q', '13': 'K'
+            };
+            const rank = card.rank in rankMapping ? rankMapping[card.rank] : card.rank;
+            return `${CARD_IMAGES_DIR}${rank}.png`; // e.g., 'cards/A.png', 'cards/5.png', 'cards/K.png'
+        }
+
+        // --- UI Rendering Functions ---
+
+        function renderPlayers() {
+            playersContainer.innerHTML = ''; // Clear existing players
+            const playerIds = Object.keys(gameState.players);
+
+            playerIds.forEach(pId => {
+                const player = gameState.players[pId];
+                const playerArea = document.createElement('div');
+                playerArea.classList.add('player-area');
+                playerArea.id = `player-${pId}`;
+                if (pId === gameState.currentPlayerId) {
+                    playerArea.classList.add('active-player');
+                }
+                if (pId === gameState.localPlayerId) {
+                    playerArea.classList.add('local-player'); // Style differently for the local player
+                    playerArea.innerHTML = `<h2>Your Layout</h2>`;
+                } else {
+                    playerArea.innerHTML = `<h2>${player.name || `Player ${pId.substring(0, 4)}`}</h2>`;
+                }
+
+                const playerLayout = document.createElement('div');
+                playerLayout.classList.add('player-layout');
+
+                for (let i = 1; i <= 10; i++) {
+                    const cardSlot = document.createElement('div');
+                    cardSlot.classList.add('card-slot', `card-pos-${i}`);
+                    cardSlot.dataset.position = i;
+                    cardSlot.dataset.playerId = pId; // Store player ID on the slot
+
+                    const card = player.layout[i];
+                    const isFaceUp = card && card.faceUp;
+                    const imageUrl = getCardImageUrl(card ? card.card : null, isFaceUp);
+
+                    const img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = `Card Slot ${i}`;
+                    img.classList.add('card-image');
+                    if (!isFaceUp) {
+                        img.classList.add('face-down');
+                    }
+
+                    cardSlot.appendChild(img);
+                    playerLayout.appendChild(cardSlot);
+
+                    // Add click listener for local player's slots to play cards
+                    if (pId === gameState.localPlayerId) {
+                        cardSlot.addEventListener('click', handleCardSlotClick);
+                    }
+                }
+                playerArea.appendChild(playerLayout);
+                playersContainer.appendChild(playerArea);
+            });
+        }
+
+        function updateGameInfo() {
+            gameIdDisplay.textContent = gameState.gameId || 'N/A';
+            const currentPlayerName = gameState.players[gameState.currentPlayerId]?.name || 'Waiting...';
+            currentPlayerDisplay.textContent = currentPlayerName;
+
+            // Enable/disable buttons based on turn
+            const isMyTurn = gameState.localPlayerId === gameState.currentPlayerId;
+            drawCardBtn.disabled = !isMyTurn;
+            passTurnBtn.disabled = !isMyTurn; // Pass turn button might be enabled later when a card is drawn
+        }
+
+        function updateDrawAndDiscardPiles() {
+            // Draw Pile
+            const drawPileImg = drawPile.querySelector('.card-image');
+            // Only show card back if deck has cards. Otherwise, show blank slot.
+            if (gameState.deckSize > 0) {
+                drawPileImg.src = CARD_BACK_IMG;
+                drawPileImg.classList.remove('face-down');
+            } else {
+                drawPileImg.src = BLANK_CARD_IMG; // No cards, show empty slot
+                drawPileImg.classList.add('face-down');
+            }
+
+            // Discard Pile
+            const discardPileImg = discardPile.querySelector('.card-image');
+            if (gameState.discardTopCard) {
+                discardPileImg.src = getCardImageUrl(gameState.discardTopCard, true);
+                discardPileImg.classList.remove('face-down');
+            } else {
+                discardPileImg.src = BLANK_CARD_IMG; // No cards, show empty slot
+                discardPileImg.classList.add('face-down');
+            }
+        }
+
+        // --- Event Handlers (These will trigger Firebase updates in your backend logic) ---
+
+        drawCardBtn.addEventListener('click', () => {
+            if (gameState.localPlayerId === gameState.currentPlayerId) {
+                // This is where you'd trigger a Firebase function to draw a card
+                console.log("Local player attempting to draw a card...");
+                // After successful draw (from Firebase callback), you'd update local gameState
+                // For now, simulate a drawn card for testing UI:
+                simulateDrawCard({ rank: '5', suit: 'H' }); // Replace with actual card drawn from backend
+                // This button might be disabled after draw, and then another action (play/discard) is enabled
+            }
+        });
+
+        passTurnBtn.addEventListener('click', () => {
+            if (gameState.localPlayerId === gameState.currentPlayerId) {
+                console.log("Local player attempting to pass turn...");
+                // This is where you'd trigger a Firebase function to end turn
+                // After turn passes (from Firebase callback), gameState.currentPlayerId will update
+            }
+        });
+
+        // For demonstration: simulate a card being drawn from the deck
+        let currentDrawnCard = null; // Card held by the player after drawing
+        function simulateDrawCard(card) {
+            currentDrawnCard = card;
+            console.log("You drew:", card);
+            // Visually update current drawn card display (e.g., in a temporary slot or hover)
+            // For this example, we'll just log it. Player will click on a slot to play it.
+            passTurnBtn.disabled = false; // Now player can pass turn if they can't play
+        }
+
+
+        // --- Main game initialization ---
+        function initGame() {
+            // 1. Get Game ID from URL Hash
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#')) {
+                gameState.gameId = hash.substring(1);
+            } else {
+                // If no game ID in hash, maybe show a "create game" or "join game" UI
+                // For this frontend-only, we'll just generate a dummy one.
+                gameState.gameId = 'DEMO' + Math.random().toString(36).substring(2, 6).toUpperCase();
+                window.location.hash = gameState.gameId; // Update URL for sharing
+            }
+
+            // 2. Simulate initial game state (this will come from Firebase in your real app)
+            // This is just for demonstration purposes to make the UI render.
+            simulateInitialGameState();
+
+            // 3. Render initial UI
+            renderPlayers();
+            updateGameInfo();
+            updateDrawAndDiscardPiles();
+
+            // In a real app:
+            // - You'd initialize Firebase here
+            // - Set up real-time listeners for the 'games/{gameId}' document
+            // - Inside the listener callback, you'd update gameState and then call renderPlayers(), updateGameInfo(), etc.
+            // - Handle player joining, dealing, game start from Firebase data.
+        }
+
+        // --- Simulate Initial Game State (for frontend testing without backend) ---
+        function simulateInitialGameState() {
+            gameState.localPlayerId = 'player1'; // Assume we are player1 for testing
+            gameState.currentPlayerId = 'player1'; // Player1 starts
+
+            gameState.players = {
+                'player1': {
+                    name: 'You',
+                    layout: {
+                        '1': { card: null, faceUp: false },
+                        '2': { card: null, faceUp: false },
+                        '3': { card: { rank: '3', suit: 'D' }, faceUp: true },
+                        '4': { card: null, faceUp: false },
+                        '5': { card: null, faceUp: false },
+                        '6': { card: { rank: 'K', suit: 'S' }, faceUp: true }, // King in slot 6
+                        '7': { card: null, faceUp: false },
+                        '8': { card: null, faceUp: false },
+                        '9': { card: null, faceUp: false },
+                        '10': { card: { rank: 'J', suit: 'H' }, faceUp: false } // Face down Jack
+                    }
+                },
+                'player2': {
+                    name: 'Opponent 1',
+                    layout: {
+                        '1': { card: null, faceUp: false },
+                        '2': { card: null, faceUp: false },
+                        '3': { card: null, faceUp: false },
+                        '4': { card: null, faceUp: false },
+                        '5': { card: null, faceUp: false },
+                        '6': { card: null, faceUp: false },
+                        '7': { card: null, faceUp: false },
+                        '8': { card: null, faceUp: false },
+                        '9': { card: null, faceUp: false },
+                        '10': { card: null, faceUp: false }
+                    }
+                },
+                'player3': {
+                    name: 'Opponent 2',
+                    layout: {
+                        '1': { card: null, faceUp: false },
+                        '2': { card: null, faceUp: false },
+                        '3': { card: null, faceUp: false },
+                        '4': { card: null, faceUp: false },
+                        '5': { card: null, faceUp: false },
+                        '6': { card: null, faceUp: false },
+                        '7': { card: null, faceUp: false },
+                        '8': { card: null, faceUp: false },
+                        '9': { card: null, faceUp: false },
+                        '10': { card: null, faceUp: false }
+                    }
+                }
+            };
+            gameState.deckSize = 30; // Simulate some cards in deck
+            gameState.discardTopCard = { rank: '8', suit: 'C' }; // Simulate a card on discard pile
+        }
+
+
+        // --- Card Slot Click Handler (for playing cards from hand/drawn card) ---
+        function handleCardSlotClick(event) {
+            if (gameState.localPlayerId !== gameState.currentPlayerId || !currentDrawnCard) {
+                console.log("Not your turn or no card drawn yet.");
+                return;
+            }
+
+            const clickedSlot = event.currentTarget;
+            const targetPosition = parseInt(clickedSlot.dataset.position, 10);
+            const targetPlayerId = clickedSlot.dataset.playerId;
+
+            if (targetPlayerId === gameState.localPlayerId) {
+                console.log(`Attempting to play ${currentDrawnCard.rank} to slot ${targetPosition}`);
+
+                // IMPORTANT: In your real app, this is where you'd send a Firebase update
+                // to record the player's move. The backend would validate the move.
+                // For now, we simulate success:
+
+                const oldCardInSlot = gameState.players[targetPlayerId].layout[targetPosition].card;
+                const wasFaceUp = gameState.players[targetPlayerId].layout[targetPosition].faceUp;
+
+                // Place the drawn card in the slot
+                gameState.players[targetPlayerId].layout[targetPosition] = {
+                    card: currentDrawnCard,
+                    faceUp: true
+                };
+
+                // If there was an old card, it becomes the new currentDrawnCard
+                if (oldCardInSlot && wasFaceUp) {
+                    // If the slot had a face-up card, the drawn card replaces it,
+                    // and the old card needs to be discarded (unless it's a King and can be moved).
+                    // This logic gets complex quickly. For a simple demo, assume discard if face up.
+                    console.log("Discarding previously face-up card:", oldCardInSlot);
+                    gameState.discardTopCard = oldCardInSlot;
+                    currentDrawnCard = null; // No card in hand
+                    passTurnBtn.disabled = false; // Can pass turn now
+                } else if (oldCardInSlot && !wasFaceUp) {
+                    // If the slot had a face-down card, it flips over and becomes the next card to play
+                    currentDrawnCard = oldCardInSlot;
+                    console.log("Flipped new card to play:", oldCardInSlot);
+                    passTurnBtn.disabled = true; // Cannot pass turn yet, must play/discard this new card
+                } else {
+                    // Slot was empty (e.g., King was moved from here), drawn card is played, turn ends.
+                    currentDrawnCard = null;
+                    passTurnBtn.disabled = false; // Can pass turn now
+                }
+
+                // Re-render UI after state change
+                renderPlayers();
+                updateDrawAndDiscardPiles();
+
+                // If currentDrawnCard is null, it means the turn has ended or the player needs to draw again.
+                // If it's a new card from a flipped slot, the player continues their turn.
+                if (!currentDrawnCard) {
+                    console.log("Turn ended (card played or discarded).");
+                    // In a real game, you'd trigger backend to advance turn.
+                    // For now, just re-enable draw and disable pass for next *simulated* turn.
+                    drawCardBtn.disabled = false;
+                    passTurnBtn.disabled = true;
+                }
+
+            } else {
+                console.log("You can only play cards into your own layout.");
+            }
+        }
+
+
+        // --- Initialize the game when the DOM is ready ---
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
