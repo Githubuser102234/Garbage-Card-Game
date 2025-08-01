@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garbage Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            background-color: #33691e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: #004d40;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            color: #a7ffeb;
+            margin-bottom: 20px;
+        }
+
+        #game-info {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        /* New Alert Area Styling */
+        #game-alerts {
+            background-color: #004d40;
+            border: 2px solid #a7ffeb;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .center-area {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 30px;
+        }
+
+        .card-slot {
+            width: 100px;
+            height: 140px;
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            box-sizing: border-box; /* Ensure padding/border is inside */
+        }
+
+        .card-slot.text-card {
+            border: 2px solid #555;
+            background-color: #333;
+            color: white;
+            font-size: 0.9em;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer; /* Indicate it's interactive */
+        }
+
+        .card-slot.face-down {
+            background-color: #a00; /* Red back for "Garbage" */
+            border-color: #c00;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .card-slot.face-down .card-content {
+            display: none; /* Hide content of face-down cards */
+        }
+
+        .card-slot .card-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1; /* Allows it to fill the space */
+            width: 100%;
+        }
+
+        .card-slot .card-rank {
+            font-size: 2.2em;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .card-slot .card-suit {
+            font-size: 1.5em;
+            line-height: 1;
+            margin-top: 5px;
+        }
+
+        .card-slot p {
+            position: absolute;
+            bottom: 5px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8em;
+            margin: 0;
+        }
+
+        /* Adjustments for draw/discard pile specific text */
+        .draw-pile.card-slot p, .discard-pile.card-slot p {
+            position: static; /* Remove absolute positioning */
+            margin-top: 5px;
+            font-size: 1em;
+        }
+
+        .player-area {
+            background-color: #00796b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-area h2 {
+            text-align: center;
+            color: #e0f2f1;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .player-layout {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            justify-items: center;
+        }
+
+        .player-area.active-player {
+            border: 3px solid #ffeb3b;
+            box-shadow: 0 0 25px rgba(255, 235, 59, 0.7);
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .actions button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        .actions button:hover:not(:disabled) {
+            background-color: #66bb6a;
+            transform: translateY(-2px);
+        }
+
+        .actions button:disabled {
+            background-color: #9e9e9e;
+            cursor: not-allowed;
+        }
+
+        /* Lobby and controls styling */
+        .lobby-container, .game-full-message, .nickname-section {
+            background-color: #00796b;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .lobby-container input[type="text"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #004d40;
+            margin-right: 10px;
+            width: 200px;
+            font-size: 1em;
+        }
+
+        .lobby-container button {
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .lobby-container button:hover {
+            background-color: #66bb6a;
+        }
+
+        #game-link-display {
+            margin-top: 15px;
+            font-size: 1.1em;
+            color: #e0f2f1;
+            word-wrap: break-word;
+        }
+
+        #game-link-display a {
+            color: #ffeb3b;
+            text-decoration: none;
+        }
+
+        #game-link-display a:hover {
+            text-decoration: underline;
+        }
+
+        /* Hide elements based on game state */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 15px;
+            }
+            .player-layout {
+                grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            }
+            .card-slot {
+                width: 80px;
+                height: 112px;
+            }
+            .center-area {
+                flex-direction: column;
+                gap: 20px;
+                align-items: center;
+            }
+            .lobby-container input[type="text"] {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            .lobby-container button {
+                width: 100%;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Garbage Card Game</h1>
+
+        <div id="nickname-section" class="nickname-section">
+            <label for="nickname-input">Your Nickname:</label>
+            <input type="text" id="nickname-input" placeholder="Enter your nickname" maxlength="15">
+            <button id="save-nickname-btn">Save Nickname</button>
+            <p id="current-nickname-display">Current: Guest</p>
+        </div>
+
+        <div id="lobby-section" class="lobby-container">
+            <h2>Game Lobby</h2>
+            <button id="create-game-btn">Create New Game</button>
+            <p>OR</p>
+            <div>
+                <input type="text" id="join-game-id-input" placeholder="Enter Game ID">
+                <button id="join-game-btn">Join Game</button>
+            </div>
+            <p id="game-link-display" class="hidden"></p>
+            <p id="lobby-status-message" style="color: #ffeb3b; margin-top: 10px;"></p>
+        </div>
+
+        <div id="game-full-section" class="game-full-message hidden">
+            <h2>Game is Full!</h2>
+            <p>Sorry, this game has reached its maximum number of players (4/4).</p>
+            <button id="back-to-lobby-btn">Back to Lobby</button>
+        </div>
+
+        <div id="game-play-section" class="hidden">
+            <div id="game-alerts">Game alerts will appear here.</div>
+
+            <div id="game-info">
+                <p>Game ID: <span id="game-id-display">N/A</span></p>
+                <p>Current Turn: <span id="current-player-display">Waiting...</span></p>
+            </div>
+
+            <div class="center-area">
+                <div class="draw-pile card-slot text-card" id="draw-pile">
+                    <div class="card-content">
+                        <span class="card-rank"></span>
+                        <span class="card-suit"></span>
+                    </div>
+                    <p>Draw Pile</p>
+                </div>
+                <div class="discard-pile card-slot text-card" id="discard-pile">
+                    <div class="card-content">
+                        <span class="card-rank"></span>
+                        <span class="card-suit"></span>
+                    </div>
+                    <p>Discard Pile</p>
+                </div>
+            </div>
+
+            <div id="players-container">
+            </div>
+
+            <div class="actions">
+                <button id="draw-card-btn">Draw Card</button>
+                <button id="pass-turn-btn" disabled>Pass Turn</button>
+                <button id="leave-game-btn" style="background-color: #f44336;">Leave Game</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // Removed BLANK_CARD_IMG, CARD_BACK_IMG, CARD_IMAGES_BASE_URL as we're using text
+        const MAX_PLAYERS_IN_GAME = 4;
+        const LOCAL_CLIENT_ID_KEY = 'garbageCardGameClientId';
+        const NICKNAME_STORAGE_KEY = 'playerNickname';
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+        import { getDatabase, ref, set, onValue, push, remove, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDQRcHzt0LT9d0xozMFdRdQo-53p11JeYQ",
+            authDomain: "garbagecardgame.firebaseapp.com",
+            projectId: "garbagecardgame",
+            storageBucket: "garbagecardgame.firebasestorage.app",
+            messagingSenderId: "695757044499",
+            appId: "1:695757044499:web:fbcb65363591a04bbe38e6",
+            measurementId: "G-VDEMZ4YQX7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getDatabase(app);
+
+        const gameIdDisplay = document.getElementById('game-id-display');
+        const currentPlayerDisplay = document.getElementById('current-player-display');
+        const playersContainer = document.getElementById('players-container');
+        const drawPile = document.getElementById('draw-pile');
+        const discardPile = document.getElementById('discard-pile');
+        const drawCardBtn = document.getElementById('draw-card-btn');
+        const passTurnBtn = document.getElementById('pass-turn-btn');
+        const leaveGameBtn = document.getElementById('leave-game-btn');
+        const gameAlerts = document.getElementById('game-alerts'); // New: Get the game alerts div
+
+        const nicknameInput = document.getElementById('nickname-input');
+        const saveNicknameBtn = document.getElementById('save-nickname-btn');
+        const currentNicknameDisplay = document.getElementById('current-nickname-display');
+
+        const lobbySection = document.getElementById('lobby-section');
+        const createGameBtn = document.getElementById('create-game-btn');
+        const joinGameIdInput = document.getElementById('join-game-id-input');
+        const joinGameBtn = document.getElementById('join-game-btn');
+        const gameLinkDisplay = document.getElementById('game-link-display');
+        const lobbyStatusMessage = document.getElementById('lobby-status-message');
+
+        const gameFullSection = document.getElementById('game-full-section');
+        const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
+
+        const gamePlaySection = document.getElementById('game-play-section');
+
+        let gameState = {
+            gameId: null,
+            players: {},
+            currentPlayerId: null,
+            localPlayerId: null,
+            localPlayerNickname: 'Guest',
+            localClientId: getOrCreateClientId(),
+            deckSize: 0,
+            discardTopCard: null,
+            status: 'lobby'
+        };
+
+        let currentDrawnCard = null;
+        let unsubscribeFromGame = null;
+
+        /**
+         * Displays an alert message on the UI.
+         * @param {string} message The message to display.
+         */
+        function showAlert(message) {
+            gameAlerts.textContent = message;
+        }
+
+        function getOrCreateClientId() {
+            let clientId = localStorage.getItem(LOCAL_CLIENT_ID_KEY);
+            if (!clientId) {
+                clientId = 'client_' + Math.random().toString(36).substring(2, 12);
+                localStorage.setItem(LOCAL_CLIENT_ID_KEY, clientId);
+            }
+            return clientId;
+        }
+
+        function showSection(sectionElement) {
+            lobbySection.classList.add('hidden');
+            gameFullSection.classList.add('hidden');
+            gamePlaySection.classList.add('hidden');
+            sectionElement.classList.remove('hidden');
+        }
+
+        function loadNickname() {
+            const savedNickname = localStorage.getItem(NICKNAME_STORAGE_KEY);
+            if (savedNickname) {
+                gameState.localPlayerNickname = savedNickname;
+                nicknameInput.value = savedNickname;
+                currentNicknameDisplay.textContent = `Current: ${savedNickname}`;
+            }
+        }
+
+        function saveNickname() {
+            const newNickname = nicknameInput.value.trim();
+            if (newNickname) {
+                localStorage.setItem(NICKNAME_STORAGE_KEY, newNickname);
+                gameState.localPlayerNickname = newNickname;
+                currentNicknameDisplay.textContent = `Current: ${newNickname}`;
+                showAlert('Nickname saved!');
+            } else {
+                showAlert('Nickname cannot be empty.');
+                nicknameInput.value = gameState.localPlayerNickname;
+            }
+        }
+
+        async function createGame() {
+            showAlert('Creating game...');
+            gameLinkDisplay.classList.add('hidden');
+
+            const gameId = 'GAME' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            const newPlayerId = gameState.localClientId;
+
+            const initialPlayerLayout = {};
+            for (let i = 1; i <= 10; i++) {
+                initialPlayerLayout[i] = { card: null, faceUp: false };
+            }
+
+            const initialGameData = {
+                players: {
+                    [newPlayerId]: {
+                        name: gameState.localPlayerNickname,
+                        clientId: gameState.localClientId,
+                        connected: true,
+                        layout: initialPlayerLayout
+                    }
+                },
+                status: 'waiting',
+                currentPlayerId: newPlayerId,
+                deckSize: 0,
+                discardTopCard: null
+            };
+
+            try {
+                await set(ref(db, 'games/' + gameId), initialGameData);
+                console.log(`Game created with ID: ${gameId}`);
+                gameState.gameId = gameId;
+                gameState.localPlayerId = newPlayerId;
+                window.location.hash = gameId;
+                startListeningToGame(gameId);
+                gameLinkDisplay.innerHTML = `Share this link: <a href="${window.location.origin}/#${gameId}" target="_blank">${window.location.origin}/#${gameId}</a>`;
+                gameLinkDisplay.classList.remove('hidden');
+                showAlert('Game created! Waiting for players.');
+                showSection(gamePlaySection);
+            } catch (error) {
+                console.error("Error creating game:", error);
+                showAlert('Failed to create game. Please try again.');
+            }
+        }
+
+        async function previewGame(gameIdToPreview) {
+            showAlert('Loading game info...');
+            joinGameBtn.disabled = true;
+
+            try {
+                const snapshot = await get(ref(db, 'games/' + gameIdToPreview));
+                const gameData = snapshot.val();
+
+                if (gameData) {
+                    const players = gameData.players || {};
+                    const playerCount = Object.keys(players).length;
+                    const currentStatus = gameData.status || 'waiting';
+
+                    lobbyStatusMessage.innerHTML = `Game ID: <strong>${gameIdToPreview}</strong><br>Players: ${playerCount}/${MAX_PLAYERS_IN_GAME}<br>Status: ${currentStatus}`;
+                    joinGameIdInput.value = gameIdToPreview;
+
+                    const isLocalPlayerInGame = Object.values(players).some(p => p.clientId === gameState.localClientId);
+
+                    if (isLocalPlayerInGame) {
+                        joinGameBtn.disabled = true;
+                        joinGameBtn.textContent = "Already In Game";
+                        showAlert('You are already in this game!');
+                        gameState.gameId = gameIdToPreview;
+                        gameState.localPlayerId = Object.keys(players).find(key => players[key].clientId === gameState.localClientId);
+                        startListeningToGame(gameIdToPreview);
+                        showSection(gamePlaySection);
+                    } else if (playerCount < MAX_PLAYERS_IN_GAME) {
+                        joinGameBtn.disabled = false;
+                        joinGameBtn.textContent = "Join Game";
+                    } else {
+                        joinGameBtn.disabled = true;
+                        joinGameBtn.textContent = "Game Full";
+                        showAlert('Game is full!');
+                    }
+                } else {
+                    showAlert('Game not found.');
+                    joinGameIdInput.value = '';
+                }
+            } catch (error) {
+                console.error("Error previewing game:", error);
+                showAlert('Error loading game info. Please check ID.');
+            }
+        }
+
+        async function joinGame(gameIdToJoin) {
+            if (!gameState.localPlayerNickname || gameState.localPlayerNickname === 'Guest') {
+                showAlert('Please set your nickname before joining a game.');
+                return;
+            }
+            showAlert('Attempting to join game...');
+            gameLinkDisplay.classList.add('hidden');
+            joinGameBtn.disabled = true;
+
+            const gameRef = ref(db, 'games/' + gameIdToJoin);
+            const newPlayerId = gameState.localClientId;
+
+            const result = await runTransaction(gameRef, (currentData) => {
+                if (currentData) {
+                    const players = currentData.players || {};
+                    let playerCount = Object.keys(players).length;
+
+                    let playerAlreadyInGame = false;
+                    for(const pId in players) {
+                        if (players[pId].clientId === gameState.localClientId) {
+                            playerAlreadyInGame = true;
+                            break;
+                        }
+                    }
+
+                    if (playerAlreadyInGame) {
+                        return currentData;
+                    }
+
+                    if (playerCount >= MAX_PLAYERS_IN_GAME) {
+                        currentData.status = 'full';
+                        return currentData;
+                    }
+
+                    const initialPlayerLayout = {};
+                    for (let i = 1; i <= 10; i++) {
+                        initialPlayerLayout[i] = { card: null, faceUp: false };
+                    }
+
+                    players[newPlayerId] = {
+                        name: gameState.localPlayerNickname,
+                        clientId: gameState.localClientId,
+                        connected: true,
+                        layout: initialPlayerLayout
+                    };
+                    currentData.players = players;
+                    playerCount++;
+
+                    if (!currentData.currentPlayerId) {
+                        currentData.currentPlayerId = newPlayerId;
+                    }
+
+                    if (playerCount === MAX_PLAYERS_IN_GAME) {
+                        currentData.status = 'playing';
+                        // Simulate initial deck and discard for testing text cards
+                        currentData.deckSize = 40; // Example size
+                        currentData.discardTopCard = { rank: 8, suit: 'clubs' }; // Example card
+                    } else {
+                        currentData.status = 'waiting';
+                    }
+                    return currentData;
+                }
+                return null;
+            });
+
+            if (result.committed) {
+                const gameData = result.snapshot.val();
+                if (gameData) {
+                    const players = gameData.players || {};
+                    const playerInGame = Object.values(players).find(p => p.clientId === gameState.localClientId);
+
+                    if (playerInGame) {
+                        gameState.gameId = gameIdToJoin;
+                        gameState.localPlayerId = Object.keys(players).find(key => players[key].clientId === gameState.localClientId);
+                        window.location.hash = gameState.gameId;
+                        startListeningToGame(gameIdToJoin);
+                        showAlert(`Joined game: ${gameState.gameId}`);
+                        showSection(gamePlaySection);
+                    } else if (gameData.status === 'full') {
+                        showSection(gameFullSection);
+                        showAlert('Game is full!');
+                        joinGameBtn.disabled = false;
+                    } else {
+                        showAlert('Could not join game. Player already present or uncommitted transaction.');
+                        showSection(lobbySection);
+                        joinGameBtn.disabled = false;
+                    }
+                } else {
+                    showAlert('Game not found or invalid ID.');
+                    showSection(lobbySection);
+                    joinGameBtn.disabled = false;
+                }
+            } else {
+                console.error("Transaction failed or aborted.");
+                if (result.snapshot.val() && result.snapshot.val().status === 'full') {
+                    showSection(gameFullSection);
+                    showAlert('Game is full!');
+                } else {
+                    showAlert('Failed to join game due to a conflict. Please try again.');
+                    showSection(lobbySection);
+                    joinGameBtn.disabled = false;
+                }
+            }
+        }
+
+        async function leaveGame() {
+            if (gameState.gameId && gameState.localPlayerId) {
+                const playerRef = ref(db, `games/${gameState.gameId}/players/${gameState.localPlayerId}`);
+                await remove(playerRef)
+                    .then(() => {
+                        console.log("Left game successfully.");
+                        if (unsubscribeFromGame) {
+                            unsubscribeFromGame();
+                            unsubscribeFromGame = null;
+                        }
+                        gameState.gameId = null;
+                        gameState.localPlayerId = null;
+                        gameState.players = {};
+                        gameState.currentPlayerId = null;
+                        window.location.hash = '';
+                        showSection(lobbySection);
+                        showAlert('You have left the game.');
+                        currentDrawnCard = null;
+                        initUI();
+                    })
+                    .catch(error => {
+                        console.error("Error leaving game:", error);
+                        showAlert('Error leaving game. Try refreshing.');
+                    });
+            }
+        }
+
+        function startListeningToGame(gameId) {
+            if (unsubscribeFromGame) {
+                unsubscribeFromGame();
+            }
+            const gameRef = ref(db, 'games/' + gameId);
+            unsubscribeFromGame = onValue(gameRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    gameState.players = data.players || {};
+                    gameState.currentPlayerId = data.currentPlayerId;
+                    gameState.deckSize = data.deckSize || 0;
+                    gameState.discardTopCard = data.discardTopCard || null;
+                    gameState.status = data.status || 'waiting';
+
+                    const playerCount = Object.keys(gameState.players).length;
+                    const isLocalPlayerInGame = Object.values(gameState.players).some(p => p.clientId === gameState.localClientId);
+
+                    if (gameState.status === 'full' && playerCount >= MAX_PLAYERS_IN_GAME && !isLocalPlayerInGame) {
+                        showSection(gameFullSection);
+                    } else if (!isLocalPlayerInGame && gameState.gameId) {
+                        console.log("Local player not found in game data, returning to lobby.");
+                        leaveGame();
+                    } else if (isLocalPlayerInGame && gameState.gameId) {
+                        gameState.localPlayerId = Object.keys(gameState.players).find(key => gameState.players[key].clientId === gameState.localClientId);
+
+                        renderPlayers();
+                        updateGameInfo();
+                        updateDrawAndDiscardPiles();
+                        showSection(gamePlaySection);
+                    } else {
+                        console.log("Not in game yet, remaining in lobby or processing preview.");
+                        showSection(lobbySection);
+                        previewGame(gameState.gameId);
+                    }
+
+                } else {
+                    console.log("Game no longer exists or cleared in Firebase.");
+                    if (unsubscribeFromGame) {
+                        unsubscribeFromGame();
+                        unsubscribeFromGame = null;
+                    }
+                    gameState.gameId = null;
+                    gameState.localPlayerId = null;
+                    gameState.players = {};
+                    gameState.currentPlayerId = null;
+                    window.location.hash = '';
+                    showSection(lobbySection);
+                    showAlert('The game has ended or was deleted.');
+                }
+            }, (error) => {
+                console.error("Firebase read failed:", error);
+                showAlert('Error connecting to game. Please try again.');
+                showSection(lobbySection);
+            });
+        }
+
+        // Renamed and updated to render text directly
+        function renderCardContent(cardSlotElement, card, faceUp = true, isPile = false) {
+            const cardContentDiv = cardSlotElement.querySelector('.card-content');
+            const cardRankSpan = cardContentDiv.querySelector('.card-rank');
+            const cardSuitSpan = cardContentDiv.querySelector('.card-suit');
+            
+            // Clear previous content
+            cardRankSpan.textContent = '';
+            cardSuitSpan.textContent = '';
+            cardContentDiv.style.color = '';
+            cardSlotElement.classList.remove('face-down');
+
+            if (!faceUp || !card) {
+                cardSlotElement.classList.add('face-down');
+                cardRankSpan.textContent = 'GARBAGE'; // For the 'face-down' card style
+                cardSlotElement.style.color = 'white'; // Ensure the text is visible
+            } else {
+                let rankText;
+                switch (card.rank) {
+                    case 1: rankText = 'A'; break;
+                    case 11: rankText = 'J'; break;
+                    case 12: rankText = 'Q'; break;
+                    case 13: rankText = 'K'; break;
+                    default: rankText = card.rank.toString();
+                }
+                const suitSymbol = getSuitSymbol(card.suit);
+                const suitColor = (card.suit === 'hearts' || card.suit === 'diamonds') ? '#ff5252' : '#212121';
+
+                cardRankSpan.textContent = rankText;
+                cardSuitSpan.textContent = suitSymbol;
+                cardContentDiv.style.color = suitColor;
+            }
+
+            // Ensure pile label is correct
+            const pileLabel = cardSlotElement.querySelector('p');
+            if (isPile) {
+                if (!pileLabel) {
+                    const p = document.createElement('p');
+                    p.textContent = cardSlotElement.id === 'draw-pile' ? 'Draw Pile' : 'Discard Pile';
+                    cardSlotElement.appendChild(p);
+                }
+            } else if (pileLabel) {
+                pileLabel.remove(); // Remove pile label from player cards
+            }
+        }
+
+        function getSuitSymbol(suit) {
+            switch(suit.toLowerCase()) {
+                case 'hearts': return '♥';
+                case 'diamonds': return '♦';
+                case 'clubs': return '♣';
+                case 'spades': return '♠';
+                default: return '';
+            }
+        }
+
+        function renderPlayers() {
+            playersContainer.innerHTML = '';
+            const playerIds = Object.keys(gameState.players);
+
+            playerIds.forEach(pId => {
+                const player = gameState.players[pId];
+                const playerArea = document.createElement('div');
+                playerArea.classList.add('player-area');
+                playerArea.id = `player-${pId}`;
+                if (pId === gameState.currentPlayerId) {
+                    playerArea.classList.add('active-player');
+                }
+                if (pId === gameState.localPlayerId) {
+                    playerArea.classList.add('local-player');
+                    playerArea.innerHTML = `<h2>Your Layout (${player.name})</h2>`;
+                } else {
+                    playerArea.innerHTML = `<h2>${player.name || `Player ${pId.substring(0, 4)}`}</h2>`;
+                }
+
+                const playerLayout = document.createElement('div');
+                playerLayout.classList.add('player-layout');
+
+                for (let i = 1; i <= 10; i++) {
+                    const cardSlot = document.createElement('div');
+                    cardSlot.classList.add('card-slot', 'text-card'); // Added text-card here
+                    cardSlot.dataset.position = i;
+                    cardSlot.dataset.playerId = pId;
+                    
+                    // Create the content structure for each card slot
+                    const cardContentDiv = document.createElement('div');
+                    cardContentDiv.classList.add('card-content');
+                    cardContentDiv.innerHTML = `<span class="card-rank"></span><span class="card-suit"></span>`;
+                    cardSlot.appendChild(cardContentDiv);
+
+                    const card = player.layout[i];
+                    const isFaceUp = card && card.faceUp;
+
+                    // Pass the card slot element directly to renderCardContent
+                    renderCardContent(cardSlot, card ? card.card : null, isFaceUp);
+
+
+                    playerLayout.appendChild(cardSlot);
+
+                    if (pId === gameState.localPlayerId) {
+                        cardSlot.addEventListener('click', handleCardSlotClick);
+                    }
+                }
+                playerArea.appendChild(playerLayout);
+                playersContainer.appendChild(playerArea);
+            });
+        }
+
+        function updateGameInfo() {
+            gameIdDisplay.textContent = gameState.gameId || 'N/A';
+            const currentPlayerName = gameState.players[gameState.currentPlayerId]?.name || 'Waiting...';
+            currentPlayerDisplay.textContent = currentPlayerName;
+
+            const isMyTurn = gameState.localPlayerId === gameState.currentPlayerId;
+            drawCardBtn.disabled = !isMyTurn;
+            passTurnBtn.disabled = !isMyTurn;
+            leaveGameBtn.disabled = false;
+
+            // Update alert based on turn
+            if (isMyTurn) {
+                showAlert("It's your turn! Draw a card or play from the discard pile.");
+            } else {
+                showAlert(`It's ${currentPlayerName}'s turn.`);
+            }
+        }
+
+        function updateDrawAndDiscardPiles() {
+            // Draw Pile: Always face down if deckSize > 0
+            const drawPileElement = drawPile;
+            const drawPileCard = gameState.deckSize > 0 ? { /* dummy card for visual */ } : null; // Card exists, but it's face down
+            renderCardContent(drawPileElement, drawPileCard, false, true); // Always face down for draw pile
+
+            // Discard Pile: Face up if a card exists
+            const discardPileElement = discardPile;
+            renderCardContent(discardPileElement, gameState.discardTopCard, true, true);
+        }
+
+        function simulateDrawCard() {
+            // This will be replaced with actual deck logic later
+            const dummyCard = { rank: Math.floor(Math.random() * 13) + 1, suit: ['hearts', 'diamonds', 'clubs', 'spades'][Math.floor(Math.random() * 4)] };
+            currentDrawnCard = dummyCard;
+            showAlert(`You drew a card. Play it into your layout or pass your turn.`);
+            passTurnBtn.disabled = false;
+            drawCardBtn.disabled = true; // Disable draw button after drawing
+        }
+        
+        function handlePassTurn() {
+            if (gameState.localPlayerId !== gameState.currentPlayerId || !currentDrawnCard) {
+                return;
+            }
+
+            // In a real game, you would discard the card to the pile and advance the turn.
+            // For now, we'll just log and reset the UI elements.
+            showAlert('You passed your turn. The drawn card is discarded.');
+            currentDrawnCard = null;
+            drawCardBtn.disabled = false;
+            passTurnBtn.disabled = true;
+            // You would then update Firebase to advance the turn.
+        }
+
+        function handleCardSlotClick(event) {
+            if (gameState.localPlayerId !== gameState.currentPlayerId || !currentDrawnCard) {
+                showAlert("It's not your turn, or you haven't drawn a card yet.");
+                return;
+            }
+
+            const clickedSlot = event.currentTarget;
+            const targetPosition = parseInt(clickedSlot.dataset.position, 10);
+            const targetPlayerId = clickedSlot.dataset.playerId;
+
+            if (targetPlayerId === gameState.localPlayerId) {
+                const oldCardInSlot = gameState.players[targetPlayerId].layout[targetPosition].card;
+                const wasFaceUp = gameState.players[targetPlayerId].layout[targetPosition].faceUp;
+
+                const newCardForSlot = currentDrawnCard;
+                
+                // Card validation logic would go here. For now, we assume any card can be played.
+                // For example, if you can only place a '5' in the 5th position:
+                // if (newCardForSlot.rank !== targetPosition) {
+                //     showAlert(`You can only place a '${targetPosition}' card in this slot.`);
+                //     return;
+                // }
+
+                gameState.players[targetPlayerId].layout[targetPosition] = {
+                    card: newCardForSlot,
+                    faceUp: true
+                };
+
+                let nextCardToPlay = null;
+
+                if (oldCardInSlot && wasFaceUp) {
+                    showAlert(`You played the card and discarded the previous one.`);
+                    gameState.discardTopCard = oldCardInSlot;
+                } else if (oldCardInSlot && !wasFaceUp) {
+                    showAlert(`You flipped a new card! Play the ${getCardName(oldCardInSlot)}.`);
+                    nextCardToPlay = oldCardInSlot;
+                } else {
+                    showAlert(`You placed the card in the empty slot.`);
+                }
+
+                currentDrawnCard = nextCardToPlay;
+
+                const updates = {};
+                updates[`games/${gameState.gameId}/players/${gameState.localPlayerId}/layout/${targetPosition}`] = gameState.players[targetPlayerId].layout[targetPosition];
+                if (gameState.discardTopCard) {
+                    updates[`games/${gameState.gameId}/discardTopCard`] = gameState.discardTopCard;
+                }
+                set(ref(db), updates);
+
+                renderPlayers();
+                updateDrawAndDiscardPiles();
+
+                if (!currentDrawnCard) {
+                    showAlert("Your turn is over. Waiting for other players...");
+                    drawCardBtn.disabled = false; // Re-enable draw for next turn
+                    passTurnBtn.disabled = true;
+                    // In a real game, you'd trigger backend to advance turn here.
+                    // For now, it stays on your turn.
+                } else {
+                    passTurnBtn.disabled = true;
+                    drawCardBtn.disabled = true;
+                }
+                
+                // Check for win condition
+                if (checkWinCondition(gameState.players[gameState.localPlayerId].layout)) {
+                     showAlert("Congratulations! You won the game!");
+                     // A full game would also write this win state to Firebase
+                }
+
+            } else {
+                showAlert("You can only play cards into your own layout.");
+            }
+        }
+        
+        /**
+         * Helper to get a human-readable card name for alerts.
+         * @param {object} card The card object.
+         * @returns {string} The card name (e.g., "Ace of Spades").
+         */
+        function getCardName(card) {
+            if (!card) return 'a card';
+            let rankText;
+            switch (card.rank) {
+                case 1: rankText = 'Ace'; break;
+                case 11: rankText = 'Jack'; break;
+                case 12: rankText = 'Queen'; break;
+                case 13: rankText = 'King'; break;
+                default: rankText = card.rank.toString();
+            }
+            return `${rankText} of ${card.suit}`;
+        }
+        
+        /**
+         * Checks if a player's layout is complete (all cards are face-up).
+         * @param {object} layout The player's card layout.
+         * @returns {boolean} True if all cards are face-up, otherwise false.
+         */
+        function checkWinCondition(layout) {
+            for (let i = 1; i <= 10; i++) {
+                if (!layout[i] || !layout[i].faceUp) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function initUI() {
+            loadNickname();
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#')) {
+                const gameIdFromUrl = hash.substring(1);
+                gameState.gameId = gameIdFromUrl;
+                joinGameIdInput.value = gameIdFromUrl;
+                showSection(lobbySection);
+                previewGame(gameIdFromUrl);
+            } else {
+                showSection(lobbySection);
+            }
+        }
+
+        saveNicknameBtn.addEventListener('click', saveNickname);
+        createGameBtn.addEventListener('click', createGame);
+        joinGameBtn.addEventListener('click', () => joinGame(joinGameIdInput.value.trim()));
+        leaveGameBtn.addEventListener('click', leaveGame);
+        backToLobbyBtn.addEventListener('click', () => showSection(lobbySection));
+
+        drawCardBtn.addEventListener('click', simulateDrawCard); // Hooked up to simulateDrawCard
+        passTurnBtn.addEventListener('click', handlePassTurn);
+
+        window.addEventListener('hashchange', initUI);
+
+        document.addEventListener('DOMContentLoaded', initUI);
+    </script>
+</body>
+</html>
