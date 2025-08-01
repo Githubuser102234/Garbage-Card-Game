@@ -43,7 +43,6 @@
             margin-bottom: 20px;
         }
 
-        /* New Alert Area Styling */
         #game-alerts {
             background-color: #004d40;
             border: 2px solid #a7ffeb;
@@ -105,14 +104,14 @@
         .card-slot.face-down .card-content {
             display: none;
         }
-        
+
         .card-slot.face-up .card-content {
             display: flex;
         }
 
         /* This is the key fix for the red cards */
         .card-slot.face-up {
-            background-color: #fff !important; 
+            background-color: #fff !important;
             border-color: #000 !important;
             color: #000 !important;
         }
@@ -359,7 +358,6 @@
     </div>
 
     <script type="module">
-        // Removed BLANK_CARD_IMG, CARD_BACK_IMG, CARD_IMAGES_BASE_URL as we're using text
         const MAX_PLAYERS_IN_GAME = 4;
         const LOCAL_CLIENT_ID_KEY = 'garbageCardGameClientId';
         const NICKNAME_STORAGE_KEY = 'playerNickname';
@@ -390,7 +388,7 @@
         const drawCardBtn = document.getElementById('draw-card-btn');
         const passTurnBtn = document.getElementById('pass-turn-btn');
         const leaveGameBtn = document.getElementById('leave-game-btn');
-        const gameAlerts = document.getElementById('game-alerts'); // New: Get the game alerts div
+        const gameAlerts = document.getElementById('game-alerts');
 
         const nicknameInput = document.getElementById('nickname-input');
         const saveNicknameBtn = document.getElementById('save-nickname-btn');
@@ -423,10 +421,6 @@
         let currentDrawnCard = null;
         let unsubscribeFromGame = null;
 
-        /**
-         * Displays an alert message on the UI.
-         * @param {string} message The message to display.
-         */
         function showAlert(message) {
             gameAlerts.textContent = message;
         }
@@ -749,7 +743,7 @@
             const cardContentDiv = cardSlotElement.querySelector('.card-content');
             const cardRankSpan = cardContentDiv.querySelector('.card-rank');
             const cardSuitSpan = cardContentDiv.querySelector('.card-suit');
-            
+
             // First, clear all related state classes and content
             cardSlotElement.classList.remove('face-up', 'face-down');
             cardRankSpan.textContent = '';
@@ -885,7 +879,7 @@
             passTurnBtn.disabled = false;
             drawCardBtn.disabled = true;
         }
-        
+
         function handlePassTurn() {
             if (gameState.localPlayerId !== gameState.currentPlayerId || !currentDrawnCard) {
                 return;
@@ -951,7 +945,7 @@
                     passTurnBtn.disabled = true;
                     drawCardBtn.disabled = true;
                 }
-                
+
                 if (checkWinCondition(gameState.players[gameState.localPlayerId].layout)) {
                      showAlert("Congratulations! You won the game!");
                 }
@@ -959,7 +953,7 @@
                 showAlert("You can only play cards into your own layout.");
             }
         }
-        
+
         function getCardName(card) {
             if (!card) return 'a card';
             let rankText;
@@ -972,7 +966,7 @@
             }
             return `${rankText} of ${card.suit}`;
         }
-        
+
         function checkWinCondition(layout) {
             for (let i = 1; i <= 10; i++) {
                 if (!layout[i] || !layout[i].faceUp) {
