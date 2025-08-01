@@ -78,7 +78,7 @@
             position: relative;
             background-color: rgba(0, 0, 0, 0.2);
             overflow: hidden;
-            box-sizing: border-box; /* Ensure padding/border is inside */
+            box-sizing: border-box;
         }
 
         .card-slot.text-card {
@@ -88,11 +88,11 @@
             font-size: 0.9em;
             text-align: center;
             padding: 5px;
-            cursor: pointer; /* Indicate it's interactive */
+            cursor: pointer;
         }
 
         .card-slot.face-down {
-            background-color: #a00; /* Red back for "Garbage" */
+            background-color: #a00;
             border-color: #c00;
             color: white;
             font-weight: bold;
@@ -101,9 +101,24 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .card-slot.face-down .card-content {
-            display: none; /* Hide content of face-down cards */
+            display: none;
+        }
+        
+        .card-slot.face-up .card-content {
+            display: flex;
+        }
+
+        .card-slot.face-up {
+            background-color: #fff;
+            border-color: #000;
+            color: #000;
+        }
+
+        .card-slot.face-up .card-rank.red,
+        .card-slot.face-up .card-suit.red {
+            color: #ff5252;
         }
 
         .card-slot .card-content {
@@ -111,7 +126,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            flex-grow: 1; /* Allows it to fill the space */
+            flex-grow: 1;
             width: 100%;
         }
 
@@ -135,9 +150,8 @@
             margin: 0;
         }
 
-        /* Adjustments for draw/discard pile specific text */
         .draw-pile.card-slot p, .discard-pile.card-slot p {
-            position: static; /* Remove absolute positioning */
+            position: static;
             margin-top: 5px;
             font-size: 1em;
         }
@@ -197,7 +211,6 @@
             cursor: not-allowed;
         }
 
-        /* Lobby and controls styling */
         .lobby-container, .game-full-message, .nickname-section {
             background-color: #00796b;
             border-radius: 10px;
@@ -247,12 +260,10 @@
             text-decoration: underline;
         }
 
-        /* Hide elements based on game state */
         .hidden {
             display: none !important;
         }
 
-        /* Responsive adjustments */
         @media (max-width: 768px) {
             .game-container {
                 padding: 15px;
@@ -733,23 +744,17 @@
             });
         }
 
-        // Renamed and updated to render text directly
         function renderCardContent(cardSlotElement, card, faceUp = true, isPile = false) {
             const cardContentDiv = cardSlotElement.querySelector('.card-content');
             const cardRankSpan = cardContentDiv.querySelector('.card-rank');
             const cardSuitSpan = cardContentDiv.querySelector('.card-suit');
             
-            // Clear previous content
+            // Reset classes and content
+            cardSlotElement.classList.remove('face-up', 'face-down');
             cardRankSpan.textContent = '';
             cardSuitSpan.textContent = '';
-            cardContentDiv.style.color = '';
-            cardSlotElement.classList.remove('face-down');
 
-            if (!faceUp || !card) {
-                cardSlotElement.classList.add('face-down');
-                cardRankSpan.textContent = 'GARBAGE'; // For the 'face-down' card style
-                cardSlotElement.style.color = 'white'; // Ensure the text is visible
-            } else {
+            if (faceUp && card) {
                 let rankText;
                 switch (card.rank) {
                     case 1: rankText = 'A'; break;
@@ -759,14 +764,18 @@
                     default: rankText = card.rank.toString();
                 }
                 const suitSymbol = getSuitSymbol(card.suit);
-                const suitColor = (card.suit === 'hearts' || card.suit === 'diamonds') ? '#ff5252' : '#212121';
+                const suitColorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red' : 'black';
 
+                cardSlotElement.classList.add('face-up');
                 cardRankSpan.textContent = rankText;
                 cardSuitSpan.textContent = suitSymbol;
-                cardContentDiv.style.color = suitColor;
+
+                cardRankSpan.classList.toggle('red', suitColorClass === 'red');
+                cardSuitSpan.classList.toggle('red', suitColorClass === 'red');
+            } else {
+                cardSlotElement.classList.add('face-down');
             }
 
-            // Ensure pile label is correct
             const pileLabel = cardSlotElement.querySelector('p');
             if (isPile) {
                 if (!pileLabel) {
@@ -775,7 +784,7 @@
                     cardSlotElement.appendChild(p);
                 }
             } else if (pileLabel) {
-                pileLabel.remove(); // Remove pile label from player cards
+                pileLabel.remove();
             }
         }
 
@@ -813,11 +822,10 @@
 
                 for (let i = 1; i <= 10; i++) {
                     const cardSlot = document.createElement('div');
-                    cardSlot.classList.add('card-slot', 'text-card'); // Added text-card here
+                    cardSlot.classList.add('card-slot');
                     cardSlot.dataset.position = i;
                     cardSlot.dataset.playerId = pId;
-                    
-                    // Create the content structure for each card slot
+
                     const cardContentDiv = document.createElement('div');
                     cardContentDiv.classList.add('card-content');
                     cardContentDiv.innerHTML = `<span class="card-rank"></span><span class="card-suit"></span>`;
@@ -826,9 +834,7 @@
                     const card = player.layout[i];
                     const isFaceUp = card && card.faceUp;
 
-                    // Pass the card slot element directly to renderCardContent
                     renderCardContent(cardSlot, card ? card.card : null, isFaceUp);
-
 
                     playerLayout.appendChild(cardSlot);
 
@@ -851,7 +857,6 @@
             passTurnBtn.disabled = !isMyTurn;
             leaveGameBtn.disabled = false;
 
-            // Update alert based on turn
             if (isMyTurn) {
                 showAlert("It's your turn! Draw a card or play from the discard pile.");
             } else {
@@ -860,37 +865,30 @@
         }
 
         function updateDrawAndDiscardPiles() {
-            // Draw Pile: Always face down if deckSize > 0
             const drawPileElement = drawPile;
-            const drawPileCard = gameState.deckSize > 0 ? { /* dummy card for visual */ } : null; // Card exists, but it's face down
-            renderCardContent(drawPileElement, drawPileCard, false, true); // Always face down for draw pile
+            const drawPileCard = gameState.deckSize > 0 ? { /* dummy card for visual */ } : null;
+            renderCardContent(drawPileElement, drawPileCard, false, true);
 
-            // Discard Pile: Face up if a card exists
             const discardPileElement = discardPile;
             renderCardContent(discardPileElement, gameState.discardTopCard, true, true);
         }
 
         function simulateDrawCard() {
-            // This will be replaced with actual deck logic later
             const dummyCard = { rank: Math.floor(Math.random() * 13) + 1, suit: ['hearts', 'diamonds', 'clubs', 'spades'][Math.floor(Math.random() * 4)] };
             currentDrawnCard = dummyCard;
             showAlert(`You drew a card. Play it into your layout or pass your turn.`);
             passTurnBtn.disabled = false;
-            drawCardBtn.disabled = true; // Disable draw button after drawing
+            drawCardBtn.disabled = true;
         }
         
         function handlePassTurn() {
             if (gameState.localPlayerId !== gameState.currentPlayerId || !currentDrawnCard) {
                 return;
             }
-
-            // In a real game, you would discard the card to the pile and advance the turn.
-            // For now, we'll just log and reset the UI elements.
             showAlert('You passed your turn. The drawn card is discarded.');
             currentDrawnCard = null;
             drawCardBtn.disabled = false;
             passTurnBtn.disabled = true;
-            // You would then update Firebase to advance the turn.
         }
 
         function handleCardSlotClick(event) {
@@ -908,13 +906,6 @@
                 const wasFaceUp = gameState.players[targetPlayerId].layout[targetPosition].faceUp;
 
                 const newCardForSlot = currentDrawnCard;
-                
-                // Card validation logic would go here. For now, we assume any card can be played.
-                // For example, if you can only place a '5' in the 5th position:
-                // if (newCardForSlot.rank !== targetPosition) {
-                //     showAlert(`You can only place a '${targetPosition}' card in this slot.`);
-                //     return;
-                // }
 
                 gameState.players[targetPlayerId].layout[targetPosition] = {
                     card: newCardForSlot,
@@ -947,31 +938,21 @@
 
                 if (!currentDrawnCard) {
                     showAlert("Your turn is over. Waiting for other players...");
-                    drawCardBtn.disabled = false; // Re-enable draw for next turn
+                    drawCardBtn.disabled = false;
                     passTurnBtn.disabled = true;
-                    // In a real game, you'd trigger backend to advance turn here.
-                    // For now, it stays on your turn.
                 } else {
                     passTurnBtn.disabled = true;
                     drawCardBtn.disabled = true;
                 }
                 
-                // Check for win condition
                 if (checkWinCondition(gameState.players[gameState.localPlayerId].layout)) {
                      showAlert("Congratulations! You won the game!");
-                     // A full game would also write this win state to Firebase
                 }
-
             } else {
                 showAlert("You can only play cards into your own layout.");
             }
         }
         
-        /**
-         * Helper to get a human-readable card name for alerts.
-         * @param {object} card The card object.
-         * @returns {string} The card name (e.g., "Ace of Spades").
-         */
         function getCardName(card) {
             if (!card) return 'a card';
             let rankText;
@@ -985,11 +966,6 @@
             return `${rankText} of ${card.suit}`;
         }
         
-        /**
-         * Checks if a player's layout is complete (all cards are face-up).
-         * @param {object} layout The player's card layout.
-         * @returns {boolean} True if all cards are face-up, otherwise false.
-         */
         function checkWinCondition(layout) {
             for (let i = 1; i <= 10; i++) {
                 if (!layout[i] || !layout[i].faceUp) {
@@ -1019,7 +995,7 @@
         leaveGameBtn.addEventListener('click', leaveGame);
         backToLobbyBtn.addEventListener('click', () => showSection(lobbySection));
 
-        drawCardBtn.addEventListener('click', simulateDrawCard); // Hooked up to simulateDrawCard
+        drawCardBtn.addEventListener('click', simulateDrawCard);
         passTurnBtn.addEventListener('click', handlePassTurn);
 
         window.addEventListener('hashchange', initUI);
