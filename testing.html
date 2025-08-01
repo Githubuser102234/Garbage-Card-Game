@@ -89,11 +89,6 @@
             background-repeat: no-repeat;
         }
 
-        /* Hide the text content when the card image is displayed */
-        .card-slot.face-up .card-content {
-            display: none;
-        }
-
         /* Styles for when card is face-down (red back visible) */
         .card-slot.face-down {
             background-color: #a00;
@@ -107,7 +102,7 @@
         }
 
         /* Show the text content for the draw and discard piles */
-        .card-slot.text-card p {
+        .card-slot p {
             position: static;
             margin-top: 5px;
             font-size: 1em;
@@ -691,6 +686,7 @@
 
         function getCardImageURL(card) {
             if (!card) return null;
+
             let rankName;
             switch (card.rank) {
                 case 1: rankName = 'ace'; break;
@@ -699,7 +695,6 @@
                 case 13: rankName = 'king'; break;
                 default: rankName = card.rank.toString();
             }
-            // Use the simplified rank for the filename
             return `https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/${rankName}_of_${card.suit}.png`;
         }
 
@@ -707,9 +702,8 @@
             // Clear previous states
             cardSlotElement.classList.remove('face-up', 'face-down');
             cardSlotElement.style.backgroundImage = 'none';
-
-            // Hide the text content of the card-slot
             cardSlotElement.innerHTML = '';
+            
             if (isPile) {
                  const pileLabel = document.createElement('p');
                  pileLabel.textContent = cardSlotElement.id === 'draw-pile' ? 'Draw Pile' : 'Discard Pile';
