@@ -80,16 +80,21 @@
             box-sizing: border-box;
         }
 
-        .card-slot.text-card {
-            border: 2px solid #555;
-            background-color: #333;
-            color: white;
-            font-size: 0.9em;
-            text-align: center;
-            padding: 5px;
-            cursor: pointer;
+        /* Styles for when card is face-up (image is visible) */
+        .card-slot.face-up {
+            background-color: #fff !important; /* Keep white background for image */
+            border-color: #000 !important;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
+        /* Hide the text content when the card image is displayed */
+        .card-slot.face-up .card-content {
+            display: none;
+        }
+
+        /* Styles for when card is face-down (red back visible) */
         .card-slot.face-down {
             background-color: #a00;
             border-color: #c00;
@@ -101,59 +106,12 @@
             justify-content: center;
         }
 
-        .card-slot.face-down .card-content {
-            display: none;
-        }
-
-        .card-slot.face-up .card-content {
-            display: flex;
-        }
-
-        /* This is the key fix for the red cards */
-        .card-slot.face-up {
-            background-color: #fff !important;
-            border-color: #000 !important;
-            color: #000 !important;
-        }
-
-        .card-slot.face-up .card-rank.red,
-        .card-slot.face-up .card-suit.red {
-            color: #ff5252;
-        }
-
-        .card-slot .card-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            flex-grow: 1;
-            width: 100%;
-        }
-
-        .card-slot .card-rank {
-            font-size: 2.2em;
-            font-weight: bold;
-            line-height: 1;
-        }
-
-        .card-slot .card-suit {
-            font-size: 1.5em;
-            line-height: 1;
-            margin-top: 5px;
-        }
-
-        .card-slot p {
-            position: absolute;
-            bottom: 5px;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.8em;
-            margin: 0;
-        }
-
-        .draw-pile.card-slot p, .discard-pile.card-slot p {
+        /* Show the text content for the draw and discard piles */
+        .card-slot.text-card p {
             position: static;
             margin-top: 5px;
             font-size: 1em;
+            color: #eee;
         }
 
         .player-area {
@@ -329,18 +287,10 @@
             </div>
 
             <div class="center-area">
-                <div class="draw-pile card-slot text-card" id="draw-pile">
-                    <div class="card-content">
-                        <span class="card-rank"></span>
-                        <span class="card-suit"></span>
-                    </div>
+                <div class="draw-pile card-slot" id="draw-pile">
                     <p>Draw Pile</p>
                 </div>
-                <div class="discard-pile card-slot text-card" id="discard-pile">
-                    <div class="card-content">
-                        <span class="card-rank"></span>
-                        <span class="card-suit"></span>
-                    </div>
+                <div class="discard-pile card-slot" id="discard-pile">
                     <p>Discard Pile</p>
                 </div>
             </div>
@@ -739,61 +689,39 @@
             });
         }
 
-        function renderCardContent(cardSlotElement, card, faceUp = true, isPile = false) {
-            const cardContentDiv = cardSlotElement.querySelector('.card-content');
-            const cardRankSpan = cardContentDiv.querySelector('.card-rank');
-            const cardSuitSpan = cardContentDiv.querySelector('.card-suit');
-
-            // First, clear all related state classes and content
-            cardSlotElement.classList.remove('face-up', 'face-down');
-            cardRankSpan.textContent = '';
-            cardSuitSpan.textContent = '';
-            cardRankSpan.classList.remove('red');
-            cardSuitSpan.classList.remove('red');
-
-            if (faceUp && card) {
-                let rankText;
-                switch (card.rank) {
-                    case 1: rankText = 'A'; break;
-                    case 11: rankText = 'J'; break;
-                    case 12: rankText = 'Q'; break;
-                    case 13: rankText = 'K'; break;
-                    default: rankText = card.rank.toString();
-                }
-                const suitSymbol = getSuitSymbol(card.suit);
-                const suitColorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red' : 'black';
-
-                cardSlotElement.classList.add('face-up');
-                cardRankSpan.textContent = rankText;
-                cardSuitSpan.textContent = suitSymbol;
-
-                if (suitColorClass === 'red') {
-                    cardRankSpan.classList.add('red');
-                    cardSuitSpan.classList.add('red');
-                }
-            } else {
-                cardSlotElement.classList.add('face-down');
+        function getCardImageURL(card) {
+            if (!card) return null;
+            let rankName;
+            switch (card.rank) {
+                case 1: rankName = 'ace'; break;
+                case 11: rankName = 'jack'; break;
+                case 12: rankName = 'queen'; break;
+                case 13: rankName = 'king'; break;
+                default: rankName = card.rank.toString();
             }
-
-            const pileLabel = cardSlotElement.querySelector('p');
-            if (isPile) {
-                if (!pileLabel) {
-                    const p = document.createElement('p');
-                    p.textContent = cardSlotElement.id === 'draw-pile' ? 'Draw Pile' : 'Discard Pile';
-                    cardSlotElement.appendChild(p);
-                }
-            } else if (pileLabel) {
-                pileLabel.remove();
-            }
+            // Use the simplified rank for the filename
+            return `https://raw.githubusercontent.com/Githubuser102234/Garbage-Card-Game/refs/heads/main/cards/${rankName}_of_${card.suit}.png`;
         }
 
-        function getSuitSymbol(suit) {
-            switch(suit.toLowerCase()) {
-                case 'hearts': return '♥';
-                case 'diamonds': return '♦';
-                case 'clubs': return '♣';
-                case 'spades': return '♠';
-                default: return '';
+        function renderCardContent(cardSlotElement, card, faceUp = true, isPile = false) {
+            // Clear previous states
+            cardSlotElement.classList.remove('face-up', 'face-down');
+            cardSlotElement.style.backgroundImage = 'none';
+
+            // Hide the text content of the card-slot
+            cardSlotElement.innerHTML = '';
+            if (isPile) {
+                 const pileLabel = document.createElement('p');
+                 pileLabel.textContent = cardSlotElement.id === 'draw-pile' ? 'Draw Pile' : 'Discard Pile';
+                 cardSlotElement.appendChild(pileLabel);
+            }
+
+            if (faceUp && card) {
+                const imageUrl = getCardImageURL(card);
+                cardSlotElement.classList.add('face-up');
+                cardSlotElement.style.backgroundImage = `url('${imageUrl}')`;
+            } else {
+                cardSlotElement.classList.add('face-down');
             }
         }
 
@@ -824,11 +752,6 @@
                     cardSlot.classList.add('card-slot');
                     cardSlot.dataset.position = i;
                     cardSlot.dataset.playerId = pId;
-
-                    const cardContentDiv = document.createElement('div');
-                    cardContentDiv.classList.add('card-content');
-                    cardContentDiv.innerHTML = `<span class="card-rank"></span><span class="card-suit"></span>`;
-                    cardSlot.appendChild(cardContentDiv);
 
                     const card = player.layout[i];
                     const isFaceUp = card && card.faceUp;
