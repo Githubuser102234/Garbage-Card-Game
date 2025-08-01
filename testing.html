@@ -110,10 +110,11 @@
             display: flex;
         }
 
+        /* This is the key fix for the red cards */
         .card-slot.face-up {
-            background-color: #fff;
-            border-color: #000;
-            color: #000;
+            background-color: #fff !important; 
+            border-color: #000 !important;
+            color: #000 !important;
         }
 
         .card-slot.face-up .card-rank.red,
@@ -749,10 +750,12 @@
             const cardRankSpan = cardContentDiv.querySelector('.card-rank');
             const cardSuitSpan = cardContentDiv.querySelector('.card-suit');
             
-            // Reset classes and content
+            // First, clear all related state classes and content
             cardSlotElement.classList.remove('face-up', 'face-down');
             cardRankSpan.textContent = '';
             cardSuitSpan.textContent = '';
+            cardRankSpan.classList.remove('red');
+            cardSuitSpan.classList.remove('red');
 
             if (faceUp && card) {
                 let rankText;
@@ -770,8 +773,10 @@
                 cardRankSpan.textContent = rankText;
                 cardSuitSpan.textContent = suitSymbol;
 
-                cardRankSpan.classList.toggle('red', suitColorClass === 'red');
-                cardSuitSpan.classList.toggle('red', suitColorClass === 'red');
+                if (suitColorClass === 'red') {
+                    cardRankSpan.classList.add('red');
+                    cardSuitSpan.classList.add('red');
+                }
             } else {
                 cardSlotElement.classList.add('face-down');
             }
@@ -886,9 +891,11 @@
                 return;
             }
             showAlert('You passed your turn. The drawn card is discarded.');
+            gameState.discardTopCard = currentDrawnCard; // Discard the card
             currentDrawnCard = null;
             drawCardBtn.disabled = false;
             passTurnBtn.disabled = true;
+            updateDrawAndDiscardPiles();
         }
 
         function handleCardSlotClick(event) {
